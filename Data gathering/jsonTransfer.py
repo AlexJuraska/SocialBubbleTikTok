@@ -8,6 +8,8 @@ class DataParser:
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
+    # def parseCommentsData(self, source: str) -> None:
+
     def parseCommentsData(self, source: str) -> None:
         """
         Function reads the source file and creates connections between the creator and commenters,
@@ -15,15 +17,27 @@ class DataParser:
         :param source: source filename
         :return: None
         """
-        hashtags, usernames = self.__getDataFromFile(source)
+        # hashtags, usernames = self.__getDataFromFile(source)
+        hashtags: set[str]
+        comments: set[tuple[str, str, int]]
+        hashtags, comments = self.__getDataFromFile(source)
 
         postCreator = source.split("/")[-1].split("-")[0]
 
-        # Filtering out tagged usernames for simplicity
-        usernames = {user for user in usernames if not user.startswith("@MS4") and user != postCreator}
+        filteredComments = set()
+        usernames = set()
+        for entry in comments:
+            user, text, likes = entry
+
+            #NOTE possibly not needed if the scraping code is good enough
+            if user == postCreator or user.startswith("@MS4"):  #EXPL @MS4 users are mentioned users, those we ignore
+                continue
+
+            usernames.add(user)
+            filteredComments.add(entry)
 
         with open(self.dataFile, "r") as file:
-            data: dict[str: dict[str: list[str]]] = json.load(file)
+            data = json.load(file)
 
         # Creator
         if postCreator in data.keys():
@@ -34,22 +48,39 @@ class DataParser:
             data[postCreator] = {
                 "connections": list(usernames),
                 "commenters": list(usernames),
-                "hashtags": list(hashtags)
+                "hashtags": list(hashtags),
+                "comments": []
             }
 
         # All users except Creator
-        for user in usernames:
+        for entry in filteredComments:
+            user, text, likes = entry
+
             adjustedUsers = usernames.copy()
             adjustedUsers.remove(user)
             adjustedUsers.add(postCreator)
             if user in data.keys():
                 data[user]["connections"] = list( set(data[user]["connections"]).union(adjustedUsers) )
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
+                data[user]["comments"].append(
+                    {
+                        "text": text,
+                        "likes": likes,
+                        "hashtags": list(hashtags),
+                    }
+                )
             else:
                 data[user] = {
                     "connections": list(adjustedUsers),
                     "commenters": [],
-                    "hashtags": list(hashtags)
+                    "hashtags": list(hashtags),
+                    "comments": [
+                        {
+                            "text": text,
+                            "likes": likes,
+                            "hashtags": list(hashtags),
+                        }
+                    ],
                 }
 
         with open(self.dataFile, "w") as file:
@@ -70,7 +101,7 @@ class DataParser:
         # TODO
         pass
 
-    def __getDataFromFile(self, filename: str) -> (set, tuple[str, str, int]):
+    def __getDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
         """
         Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
 
@@ -80,7 +111,7 @@ class DataParser:
         :param filename: name of the source file
         :return: Sets containing hashtags and tuples containing the rest of the data respectively
         """
-        with open(filename, encoding="UTF-8") as f:
+        with open(filename, "r", encoding="UTF-8") as f:
             data = f.read().strip().split("\n\n")
 
             hashtags = set(data[0].split("\n"))
