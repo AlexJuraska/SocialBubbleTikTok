@@ -70,23 +70,29 @@ class DataParser:
         # TODO
         pass
 
-    def __getDataFromFile(self, filename: str) -> (set, set):
+    def __getDataFromFile(self, filename: str) -> (set, tuple[str, str, int]):
         """
-        Function reads the provided file and discerns the hashtags and usernames from it
+        Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
 
-        Source file should be .txt with format hashtags and usernames each in a new line. There should be
-        an empty line separating the two sections.
+        Source file should be .txt with format hashtags each in a new line. There should be
+        an empty line separating the two sections. The other section should be "@user$Comment$likes".
 
         :param filename: name of the source file
-        :return: Sets containing hashtags and usernames respectively
+        :return: Sets containing hashtags and tuples containing the rest of the data respectively
         """
         with open(filename, encoding="UTF-8") as f:
             data = f.read().strip().split("\n\n")
 
             hashtags = set(data[0].split("\n"))
-            usernames = set(data[1].split("\n"))
 
-            return hashtags, usernames
+            comments = set()
+
+            commentsLines = data[1].split("\n")
+            for line in commentsLines:
+                sep = line.split("$")
+                comments.add((sep[0], sep[1], int(sep[2])))
+
+            return hashtags, comments
 
     def __storeHashtagStatistics(self, hashtags: set[str]) -> None:
         """
