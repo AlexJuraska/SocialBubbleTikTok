@@ -1,23 +1,21 @@
 import json
+import os
 
 # TODO Kinda forgot to actually add the comments themselves so yeah
-# TODO Probably will need to change mostly the json design, __getDataFromFile
 
 class DataParser:
     def __init__(self, dataFile: str, hashtagFile: str):
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
-    # def parseCommentsData(self, source: str) -> None:
-
-    def parseCommentsData(self, source: str) -> None:
+    def parseFileCommentsData(self, source: str) -> None:
         """
         Function reads the source file and creates connections between the creator and commenters,
-        as well as storing the associated hashtags.
+        as well as storing the associated hashtags as well as comment text and the number of likes.
         :param source: source filename
         :return: None
         """
-        # hashtags, usernames = self.__getDataFromFile(source)
+
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
         hashtags, comments = self.__getDataFromFile(source)
@@ -36,8 +34,11 @@ class DataParser:
             usernames.add(user)
             filteredComments.add(entry)
 
-        with open(self.dataFile, "r") as file:
-            data = json.load(file)
+        try:
+            with open(self.dataFile, "r") as file:
+                data = json.load(file)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            data = {}
 
         # Creator
         if postCreator in data.keys():
@@ -49,7 +50,7 @@ class DataParser:
                 "connections": list(usernames),
                 "commenters": list(usernames),
                 "hashtags": list(hashtags),
-                "comments": []
+                "commentsPosted": []
             }
 
         # All users except Creator
@@ -62,7 +63,7 @@ class DataParser:
             if user in data.keys():
                 data[user]["connections"] = list( set(data[user]["connections"]).union(adjustedUsers) )
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
-                data[user]["comments"].append(
+                data[user]["commentsPosted"].append(
                     {
                         "text": text,
                         "likes": likes,
@@ -74,7 +75,7 @@ class DataParser:
                     "connections": list(adjustedUsers),
                     "commenters": [],
                     "hashtags": list(hashtags),
-                    "comments": [
+                    "commentsPosted": [
                         {
                             "text": text,
                             "likes": likes,
@@ -88,18 +89,32 @@ class DataParser:
 
         self.__storeHashtagStatistics(hashtags)
 
-    def parseDirectoryCommentsData(self, source: str) -> None:
+    def parseDirectoryCommentsData(self, directory: str) -> None:
         """
         Function gets all the filenames from a directory and calls the parseCommentsData function.
 
         Important: the func ignores filenames starting with "--"
 
-        :param source:
-        :return:
+        :param directory: path to the directory from which the source files will be taken
+        :return: None
         """
 
-        # TODO
-        pass
+        try:
+            files: list[str] = os.listdir(directory)
+        except FileNotFoundError:
+            print("Error: Directory not found.")
+            return
+        except PermissionError:
+            print("Error: Permission denied.")
+            return
+
+        for file in files:
+            if file.startswith("--") or not file.startswith("@") or not file.endswith(".txt"):
+                continue
+
+            self.parseFileCommentsData(f"{directory}/{file}")
+
+            #TODO Test
 
     def __getDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
         """
@@ -143,3 +158,7 @@ class DataParser:
 
         with open(self.hashtagFile, "w") as file:
             json.dump(data, file, indent=3)
+
+if __name__ == "__main__":
+    p = DataParser("../Data/Information/testData.json", "../Data/Information/testHashtags.json")
+    p.parseDirectoryCommentsData("../Data/Comments")
