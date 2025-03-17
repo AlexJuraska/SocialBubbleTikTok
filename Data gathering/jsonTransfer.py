@@ -63,12 +63,19 @@ class DataParser:
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
 
                 newComment = {
-                    "text": text,
+                    "text": text.strip().lower(),
                     "likes": likes,
-                    "hashtags": list(hashtags),
+                    "hashtags": sorted(list(hashtags))
                 }
 
-                if not any(comment == newComment for comment in data[user]["commentsPosted"]):
+                if newComment not in [
+                    {
+                        "text": comment["text"].strip().lower(),
+                        "likes": comment["likes"],
+                        "hashtags": sorted(comment["hashtags"])
+                    }
+                    for comment in data[user]["commentsPosted"]
+                ]:
                     data[user]["commentsPosted"].append(newComment)
 
             else:
@@ -87,6 +94,7 @@ class DataParser:
 
         with open(self.dataFile, "w") as file:
             json.dump(data, file, indent=3)
+            #TODO its adding something that its not supposed to
 
         self.__storeHashtagStatistics(hashtags)
 
