@@ -94,7 +94,6 @@ class DataParser:
 
         with open(self.dataFile, "w") as file:
             json.dump(data, file, indent=3)
-            #TODO its adding something that its not supposed to
 
         self.__storeHashtagStatistics(hashtags)
 
