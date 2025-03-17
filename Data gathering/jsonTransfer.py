@@ -61,13 +61,16 @@ class DataParser:
             if user in data.keys():
                 data[user]["connections"] = list( set(data[user]["connections"]).union(adjustedUsers) )
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
-                data[user]["commentsPosted"].append(
-                    {
-                        "text": text,
-                        "likes": likes,
-                        "hashtags": list(hashtags),
-                    }
-                )
+
+                newComment = {
+                    "text": text,
+                    "likes": likes,
+                    "hashtags": list(hashtags),
+                }
+
+                if not any(comment == newComment for comment in data[user]["commentsPosted"]):
+                    data[user]["commentsPosted"].append(newComment)
+
             else:
                 data[user] = {
                     "connections": list(adjustedUsers),
@@ -112,8 +115,6 @@ class DataParser:
 
             self.parseFileCommentsData(f"{directory}/{file}")
 
-            #TODO Test
-
     def __getDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
         """
         Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
@@ -125,18 +126,54 @@ class DataParser:
         :return: Sets containing hashtags and tuples containing the rest of the data respectively
         """
         with open(filename, "r", encoding="UTF-8") as f:
-            data = f.read().strip().split("\n\n")
 
-            hashtags = set(data[0].split("\n"))
+            text = f.read()
+
+            if text[:2] == "\n\n":
+                hashtags = set()
+                text = text[2:]
+                commentsLines = text.split("\n")
+            else:
+                data = text.strip().split("\n\n")
+                hashtags = set(data[0].split("\n"))
+                commentsLines = data[1].split("\n")
+
+            commentsLines = self.__cleanUpData(commentsLines)
 
             comments = set()
 
-            commentsLines = data[1].split("\n")
             for line in commentsLines:
                 sep = line.split("$")
-                comments.add((sep[0], sep[1], int(sep[2])))
+
+                likesMultiplier = 1
+                if sep[2].count("K"):   # "55.8K" == 55800
+                    likesMultiplier = 1000
+                    sep[2] = sep[2].replace("K", "")
+
+                comments.add((sep[0], sep[1], int(float(sep[2]) * likesMultiplier)))
 
             return hashtags, comments
+
+    def __cleanUpData(self, lines: list[str]) -> list[str]:
+        """
+        Gets the comments data in form "@user$Comment$likes". It clears empty lines and
+        connects up seperated comment lines
+        :param lines: Data in form list["@user$Comment$likes"]
+        :return: Cleaned data
+        """
+
+        retData = []
+
+        for i, line in enumerate(lines):
+            if line.strip() == "":
+                continue
+
+            if not line.startswith("@") and len(retData) > 0:
+                retData[-1] = retData[-1] + " " + line
+            else:
+                retData.append(line)
+
+        return retData
 
     def __storeHashtagStatistics(self, hashtags: set[str]) -> None:
         """
@@ -145,8 +182,11 @@ class DataParser:
         :return: None
         """
 
-        with open(self.hashtagFile, "r") as file:
-            data = json.load(file)
+        try:
+            with open(self.hashtagFile, "r") as file:
+                data = json.load(file)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            data = {}
 
         for tag in hashtags:
             if tag in data.keys():
@@ -158,5 +198,5 @@ class DataParser:
             json.dump(data, file, indent=3)
 
 if __name__ == "__main__":
-    p = DataParser("../Data/Information/testData.json", "../Data/Information/testHashtags.json")
-    p.parseDirectoryCommentsData("../Data/Comments")
+    p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    p.parseDirectoryCommentsData("../Data/Comments/")
