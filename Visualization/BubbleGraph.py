@@ -3,40 +3,46 @@ from pyvis.network import Network
 import networkx as nx
 
 class BubbleGraph:
-    def __init__(self, dataFile: str):
+    def __init__(self, dataFile: str, hashtagFile:str):
         self.dataFile: str = dataFile
-
-        self.edges: set[tuple[int, int]] = set()
+        self.hashtagFile: str = hashtagFile
 
         self.graph: nx.DiGraph = nx.DiGraph()
 
-    def visualize(self) -> None:
+    def visualizeCommenters(self) -> None:
         """
-        Function visualizes the selected edges
+        Function visualizes the commenters
         :return: None
         """
 
-        if len(self.edges) == 0:
-            raise Exception('No added edges')
+        self.resetGraph()
 
-        self.graph.add_edges_from(self.edges)
+        self.__addEdges(self.__getCommenters())
 
         net = Network(notebook=True, directed=True)
         net.from_nx(self.graph)
         net.show("pyvisGraph.html")
 
-    def addEdges(self, connections:bool = False) -> None:
+    def resetGraph(self) -> None:
+        """
+        Function clears the graph of all nodes and edges
+        :return: None
+        """
+        self.graph.clear()
+
+    def __addEdges(self, newEdges: set[tuple[str, str]]) -> None:
         """
         Function adds edges to the graph
-        :param connections: True/False whether to add connection edges
         :return: None
         """
 
-        if not any([connections]):
-            raise Exception('At least one of the entry parameters must be True')
+        if not isinstance(newEdges, set):
+            raise TypeError('newEdges must be a set[tuple[str,str]]')
 
-        if connections:
-            self.edges = self.edges.union(self.__getConnections())
+        if len(newEdges) < 1:
+            raise Exception('newEdges must contain at least one edge')
+
+        self.graph.add_edges_from(newEdges)
 
     def __getConnections(self) -> set[tuple[str, str]]:
         """
@@ -55,8 +61,24 @@ class BubbleGraph:
 
         return retConnections
 
+    def __getCommenters(self) -> set[tuple[str, str]]:
+        """
+        Gets the commenter connections from the class dataFile and returns a set of tuples
+        :return: Set of tuples representing oriented graph edges
+        """
+
+        with open(self.dataFile, "r") as file:
+            data = json.load(file)
+
+        retCommenters = set()
+
+        for user in data:
+            for connection in data[user]["commenters"]:
+                retCommenters.add((connection, user))
+
+        return retCommenters
+
+
 if __name__ == "__main__":
-    b = BubbleGraph("../Data/Information/data.json")
-    b.addEdges(True)
-    print(len(b.edges))
-    # b.visualize()
+    b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    b.visualizeCommenters()
