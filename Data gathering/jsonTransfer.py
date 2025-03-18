@@ -197,9 +197,12 @@ class DataParser:
 
         for tag in hashtags:
             if tag in data.keys():
-                data[tag][0] += 1
+                data[tag]["count"] += 1
+                data[tag]["connections"] = list(set(data[tag]["connections"]).union(hashtags))
+                data[tag]["connections"].remove(tag)
             else:
-                data[tag] = [ 1 ]
+                data[tag] = {"count": 1, "connections": list(hashtags)}
+                data[tag]["connections"].remove(tag)
 
         with open(self.hashtagFile, "w") as file:
             json.dump(data, file, indent=3)
