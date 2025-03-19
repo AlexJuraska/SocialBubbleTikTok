@@ -6,6 +6,9 @@ class DataParser:
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
+        self.parsedPostsFile: str = "parsedPosts.txt"
+        self.parsedPosts = []
+
     def parseFileCommentsData(self, source: str) -> None:
         """
         Function reads the source file and creates connections between the creator and commenters,
@@ -13,6 +16,9 @@ class DataParser:
         :param source: source filename
         :return: None
         """
+
+        if self.__fileParsed(source):
+            return
 
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
@@ -96,6 +102,8 @@ class DataParser:
             json.dump(data, file, indent=3)
 
         self.__storeHashtagStatistics(hashtags)
+
+        self.__noteParsedFile(source)
 
     def parseDirectoryCommentsData(self, directory: str) -> None:
         """
@@ -206,6 +214,23 @@ class DataParser:
 
         with open(self.hashtagFile, "w") as file:
             json.dump(data, file, indent=3)
+
+    def __fileParsed(self, source: str) -> bool:
+
+        if len(self.parsedPosts) == 0:
+            try:
+                with open(self.parsedPostsFile, "r") as file:
+                    self.parsedPosts = file.readlines()
+            except FileNotFoundError:
+                return False
+
+        return source in self.parsedPosts
+
+    def __noteParsedFile(self, source: str) -> None:
+        with open(self.parsedPostsFile, "a") as file:
+            file.write(source + "\n")
+
+        self.parsedPosts.append(source)
 
 if __name__ == "__main__":
     p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
