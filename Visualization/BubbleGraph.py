@@ -103,6 +103,7 @@ class BubbleGraph:
         self.__addEdges(edges)
 
         net = Network(notebook=True)
+        net.force_atlas_2based()
         net.from_nx(self.graph)
         net.show("pyvisGraph.html")
 
