@@ -165,7 +165,10 @@ class DataParser:
                     likesMultiplier = 1000
                     sep[2] = sep[2].replace("K", "")
 
-                comments.add((sep[0], sep[1], int(float(sep[2]) * likesMultiplier)))
+                try:
+                    comments.add((sep[0], sep[1], int(float(sep[2]) * likesMultiplier)))
+                except:
+                    comments.add((sep[0], sep[1], 0))
 
             return hashtags, comments
 
