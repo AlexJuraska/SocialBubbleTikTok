@@ -9,6 +9,13 @@ class BubbleGraph:
 
         self.graph: nx.DiGraph = nx.DiGraph()
 
+        # Graph style preset
+        self.graphStyle = {
+            # "fillColor" : "blue",
+            # "highlightFillColor": "darkorange",
+            "borderWidth": 1
+        }
+
     def resetGraph(self) -> None:
         """
         Function clears the graph of all nodes and edges
@@ -32,12 +39,21 @@ class BubbleGraph:
 
     def __addSizedNodes(self, nodes: dict[str: int]) -> None:
         """
-        Function adds nodes with correct sizes to the graph
-        :param nodes: Dict containing name: size
+        Function adds nodes with correct sizes to the graph.
+        Each node will have a different from the default highlight color.
+        :param nodes: Dict containing {name: size}
         :return: None
         """
         for node in nodes:
-            self.graph.add_node(node, size=5*nodes[node])
+            self.graph.add_node(node,
+                                size=5*nodes[node],
+                                borderWidth = self.graphStyle['borderWidth'],
+                                labelHighlightBold = True,
+                                # color = { "highlight" : self.graphStyle["fillColor"] },
+                                # highlightColor = self.highlightStyle["fillColor"],
+                                # highlightBorderColor = self.highlightStyle["borderColor"]
+                                # physics = False
+                                )
 
     def visualizeCommenters(self) -> None:
         """
@@ -103,9 +119,10 @@ class BubbleGraph:
         self.__addEdges(edges)
 
         net = Network(notebook=True)
+        # net.barnes_hut()
         net.force_atlas_2based()
         net.from_nx(self.graph)
-        net.show("pyvisGraph.html")
+        net.show("hashtagsGraph.html")
 
     def __getHashtags(self) -> (dict[str: int], set[tuple[str, str]]):
         """
