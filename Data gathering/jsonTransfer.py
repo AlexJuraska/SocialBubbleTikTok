@@ -223,13 +223,16 @@ class DataParser:
         if len(self.parsedPosts) == 0:
             try:
                 with open(self.parsedPostsFile, "r") as file:
-                    self.parsedPosts = file.readlines()
+                    self.parsedPosts = file.read().split("\n")
             except FileNotFoundError:
                 return False
 
         return source in self.parsedPosts
 
     def __noteParsedFile(self, source: str) -> None:
+        if source in self.parsedPosts:
+            return
+
         with open(self.parsedPostsFile, "a") as file:
             file.write(source + "\n")
 
