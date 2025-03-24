@@ -1,0 +1,8 @@
+# Ignore all gathered data
+Data/
+Trash/
+Website/
+
+# Ignore secrets and unnecessary things
+.idea/
+.env/
