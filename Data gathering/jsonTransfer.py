@@ -17,14 +17,16 @@ class DataParser:
         :return: None
         """
 
-        if self.__fileParsed(source):
+        usedSource = self.__removeSearchFromFilename(source)
+
+        if self.__fileParsed(usedSource):
             return
 
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
-        hashtags, comments = self.__getDataFromFile(source)
+        hashtags, comments = self.__getDataFromFile(usedSource)
 
-        postCreator = source.split("/")[-1].split("-")[0]
+        postCreator = usedSource.split("/")[-1].split("-")[0]
 
         filteredComments = set()
         usernames = set()
@@ -103,7 +105,7 @@ class DataParser:
 
         self.__storeHashtagStatistics(hashtags)
 
-        self.__noteParsedFile(source)
+        self.__noteParsedFile(usedSource)
 
     def parseDirectoryCommentsData(self, directory: str) -> None:
         """
@@ -219,6 +221,12 @@ class DataParser:
             json.dump(data, file, indent=3)
 
     def __fileParsed(self, source: str) -> bool:
+        """
+        Checks whether the source file is parsed or not. Reads and notes the contents of the parsedPostsFile
+        if we haven't yet accessed it.
+        :param source: Path to the source file
+        :return: True/False if the file has been parsed or not
+        """
 
         if len(self.parsedPosts) == 0:
             try:
@@ -230,6 +238,13 @@ class DataParser:
         return source in self.parsedPosts
 
     def __noteParsedFile(self, source: str) -> None:
+        """
+        Notes the current file so we don't have to parse over it unnecessarily. The information is remembered in
+        the parsedPostsFile and as a class parameter, so we don't have to open a file everytime we want to check,
+        thus making the process more efficient
+        :param source: Path to the source file
+        :return: None
+        """
         if source in self.parsedPosts:
             return
 
@@ -237,6 +252,22 @@ class DataParser:
             file.write(source + "\n")
 
         self.parsedPosts.append(source)
+
+    def __removeSearchFromFilename(self, source: str) -> str:
+        """
+        Function to remove the search tag from the filenames that contain it
+        :param source: Path to the source file
+        :return: New source file name
+        """
+
+        newSource = source
+        index = newSource.find("_q=")
+        if index != -1:
+            newSource = newSource[:index] + ".txt"
+            os.rename(source, newSource)
+
+        return newSource
+
 
 if __name__ == "__main__":
     p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
