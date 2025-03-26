@@ -7,7 +7,7 @@ class BubbleGraph:
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
-        self.graph: nx.DiGraph = nx.DiGraph()
+        self.graph: nx.Graph = nx.Graph()
 
         # Graph style preset
         self.graphStyle = {
@@ -23,6 +23,27 @@ class BubbleGraph:
         """
         self.graph.clear()
 
+    def visualizeGraph(self, webFileName:str = "graph.html"):
+        """
+        Function visualizes the graph of all the selected nodes and edges.
+        If no nodes or edges detected, raises an error.
+        :param webFileName:
+        :return:
+        """
+        if self.graph.number_of_edges() == 0 and self.graph.number_of_nodes() == 0:
+            raise Exception('Graph has no edges nor nodes')
+
+        if not webFileName.endswith(".html"):
+            raise ValueError("File name must end with .html")
+
+        pyvisNet = Network(notebook=True)
+        pyvisNet.from_nx(self.graph)
+
+        #TODO javascript
+
+        pyvisNet.show_buttons(filter_=["physics"])
+        pyvisNet.show(webFileName)
+
     def __addEdges(self, newEdges: set[tuple[str, str]]) -> None:
         """
         Function adds edges to the graph
@@ -37,56 +58,57 @@ class BubbleGraph:
 
         self.graph.add_edges_from(newEdges)
 
-    def __addSizedNodes(self, nodes: dict[str: int]) -> None:
+    def __addNodes(self, nodes: dict[str: int] | set[str]) -> None:
         """
-        Function adds nodes with correct sizes to the graph.
-        Each node will have a different from the default highlight color.
+        Function adds nodes to the graph. If nodes is a dictionary containing size,
+        those sizes will be reflected on each node.
         :param nodes: Dict containing {name: size}
         :return: None
         """
-        for node in nodes:
-            self.graph.add_node(node,
-                                size=5*nodes[node],
-                                borderWidth = self.graphStyle['borderWidth'],
-                                labelHighlightBold = True,
-                                # color = { "highlight" : self.graphStyle["fillColor"] },
-                                # highlightColor = self.highlightStyle["fillColor"],
-                                # highlightBorderColor = self.highlightStyle["borderColor"]
-                                # physics = False
-                                )
 
-    def visualizeCommenters(self) -> None:
+        if not isinstance(nodes, dict) and not isinstance(nodes, set):
+            raise TypeError('nodes must be a dict[str, int] or set[str]')
+
+        if len(nodes) < 1:
+            raise Exception('nodes must not be empty')
+
+        for node in nodes:
+            if isinstance(nodes, dict):
+                self.graph.add_node(node, size=5*nodes[node], labelHighlightBold = True)
+            else:
+                self.graph.add_node(node, labelHighlightBold = True)
+
+    def addCommentersToGraph(self) -> None:
         """
-        Function visualizes the commenters
+        Adds the commenter nodes and edges to the graph
         :return: None
         """
 
-        self.resetGraph()
+        commenters, connections = self.__getCommenters()
 
-        self.__addEdges(self.__getCommenters())
+        self.__addNodes(commenters)
 
-        net = Network(notebook=True, directed=True)
-        net.from_nx(self.graph)
-        net.show("pyvisGraph.html")
+        self.__addEdges(connections)
 
-    def __getCommenters(self) -> set[tuple[str, str]]:
+
+    def __getCommenters(self) -> (set[str], set[tuple[str, str]]):
         """
         Gets the commenter connections from the class dataFile and returns a set of tuples
-        :return: Set of tuples representing oriented graph edges
+        :return: Set of commenters usernames and a set of tuples representing graph edges
         """
 
         with open(self.dataFile, "r") as file:
             data = json.load(file)
 
-        retCommenters = set()
+        retConnections = set()
+        retCommenters = set(data.keys())
 
         for user in data:
             for connection in data[user]["commenters"]:
-                retCommenters.add((connection, user))
+                if (connection, user) not in retConnections and (user, connection) not in retConnections:
+                    retConnections.add((connection, user))
 
-        return retCommenters
-
-
+        return retCommenters, retConnections
 
     def __getConnections(self) -> set[tuple[str, str]]:
         """
@@ -105,24 +127,15 @@ class BubbleGraph:
 
         return retConnections
 
-    def visualizeHashtags(self) -> None:
+    def addHashtagsToGraph(self) -> None:
         """
-        Function visualizes the hashtags
+        Adds the hashtag nodes and edges to the graph
         :return: None
         """
-
-        self.resetGraph()
-
         sizes, edges = self.__getHashtags()
 
-        self.__addSizedNodes(sizes)
+        self.__addNodes(sizes)
         self.__addEdges(edges)
-
-        net = Network(notebook=True)
-        # net.barnes_hut()
-        net.force_atlas_2based()
-        net.from_nx(self.graph)
-        net.show("hashtagsGraph.html")
 
     def __getHashtags(self) -> (dict[str: int], set[tuple[str, str]]):
         """
@@ -147,4 +160,5 @@ class BubbleGraph:
 
 if __name__ == "__main__":
     b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
-    b.visualizeHashtags()
+    # b.addHashtagsToGraph()
+    # b.visualizeGraph("hashtagGraph.html")
