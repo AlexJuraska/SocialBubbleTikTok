@@ -140,39 +140,6 @@ class BubbleGraph:
 
         return retCommenters, retConnections
 
-    def addConnectionsToGraph(self) -> None:
-        """
-        Adds the user connection nodes and edges to the graph
-        :return: None
-        """
-
-        users, connections = self.__getConnections()
-
-        self.__addNodes(users)
-
-        self.__addEdges(connections)
-
-    def __getConnections(self) -> (set[str], set[tuple[str, str]]):
-        """
-        Gets the connections from the class dataFile and returns a set of tuples
-        :return: Set of usernames and a set of tuples representing non-oriented graph edges
-        """
-
-        with open(self.dataFile, "r") as file:
-            data = json.load(file)
-
-        retConnections: set[tuple[str, str]] = set()
-
-        for user in data:
-            for connection in data[user]["connections"]:
-                if user == connection:
-                    continue
-
-                if (user, connection) not in retConnections and (connection, user) not in retConnections:
-                    retConnections.add((user, connection))
-
-        return set(data.keys()), retConnections
-
     def addHashtagsToGraph(self) -> None:
         """
         Adds the hashtag nodes and edges to the graph
