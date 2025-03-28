@@ -9,13 +9,6 @@ class BubbleGraph:
 
         self.graph: nx.Graph = nx.Graph()
 
-        # Graph style preset
-        self.graphStyle = {
-            # "fillColor" : "blue",
-            # "highlightFillColor": "darkorange",
-            "borderWidth": 1
-        }
-
     def resetGraph(self) -> None:
         """
         Function clears the graph of all nodes and edges
@@ -23,12 +16,16 @@ class BubbleGraph:
         """
         self.graph.clear()
 
-    def visualizeGraph(self, webFileName:str = "graph.html"):
+    def visualizeGraph(self, webFileName:str = "graph.html",
+                             coloringStyle:str = "none",
+                       ) -> None:
         """
         Function visualizes the graph of all the selected nodes and edges.
         If no nodes or edges detected, raises an error.
-        :param webFileName:
-        :return:
+        :param webFileName: Name of the resulting html file (Must end with .html!)
+        :param coloringStyle: Type of coloring in - "select" = Selected node cluster,
+                                                    "cluster" = All clusters in a separate color
+        :return: None
         """
         if self.graph.number_of_edges() == 0 and self.graph.number_of_nodes() == 0:
             raise Exception('Graph has no edges nor nodes')
@@ -36,13 +33,35 @@ class BubbleGraph:
         if not webFileName.endswith(".html"):
             raise ValueError("File name must end with .html")
 
-        pyvisNet = Network(notebook=True)
+        if not isinstance(coloringStyle, str) or coloringStyle not in ["select", "cluster"]:
+            raise ValueError("Incorrect coloring style option - read function description")
+
+        pyvisNet = Network(notebook=True, height="780px", width="100%")
         pyvisNet.from_nx(self.graph)
-
-        #TODO javascript
-
         pyvisNet.show_buttons(filter_=["physics"])
-        pyvisNet.show(webFileName)
+        pyvisNet.force_atlas_2based()
+
+        pyvisNet.write_html(webFileName)
+
+        with open(webFileName, "r") as file:
+            oldHtml = file.read()
+
+        addedJavascript:str = ""
+
+        if coloringStyle.lower() == "select":
+            with open("graphScripts/selectedClusterHighlighting.js", "r") as file:
+                selectedClusterHighlightCode = file.read()
+            addedJavascript += "\n" + selectedClusterHighlightCode
+
+        elif coloringStyle.lower() == "cluster":
+            with open("graphScripts/separateClusterColors.js", "r") as file:
+                separateClusterColorCode = file.read()
+            addedJavascript += "\n" + separateClusterColorCode
+
+        newHtml = oldHtml.replace("</body>", f"<script>{addedJavascript}</script></body>")
+
+        with open(webFileName, "w") as file:
+            file.write(newHtml)
 
     def __addEdges(self, newEdges: set[tuple[str, str]]) -> None:
         """
@@ -162,3 +181,5 @@ if __name__ == "__main__":
     b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # b.addHashtagsToGraph()
     # b.visualizeGraph("hashtagGraph.html")
+    b.addCommentersToGraph()
+    b.visualizeGraph("commentersGraph.html")
