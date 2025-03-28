@@ -2,6 +2,7 @@ import json
 from pyvis.network import Network
 import networkx as nx
 import random
+import time
 
 class BubbleGraph:
     def __init__(self, dataFile: str, hashtagFile:str):
@@ -35,7 +36,7 @@ class BubbleGraph:
         if not webFileName.endswith(".html"):
             raise ValueError("File name must end with .html")
 
-        if not isinstance(coloringStyle, str) or coloringStyle not in ["select", "cluster"]:
+        if not isinstance(coloringStyle, str) or coloringStyle.lower() not in ["none", "select", "cluster"]:
             raise ValueError("Incorrect coloring style option - read function description")
 
         pyvisNet = Network(notebook=True, height="780px", width="100%")
@@ -63,6 +64,7 @@ class BubbleGraph:
     def __addEdges(self, newEdges: set[tuple[str, str]]) -> None:
         """
         Function adds edges to the graph
+        :param newEdges: Set of tuples of strings representing edges
         :return: None
         """
 
@@ -77,8 +79,8 @@ class BubbleGraph:
     def __addNodes(self, nodes: dict[str: int] | set[str]) -> None:
         """
         Function adds nodes to the graph. If nodes is a dictionary containing size,
-        those sizes will be reflected on each node.
-        :param nodes: Dict containing {name: size}
+        those sizes will be reflected on each node. Sizes must be bigger than 0.
+        :param nodes: Dict containing {name: size} or Set of str usernames
         :return: None
         """
 
@@ -90,8 +92,19 @@ class BubbleGraph:
 
         for node in nodes:
             if isinstance(nodes, dict):
+
+                if not isinstance(node, str) or not isinstance(nodes[node], int):
+                    raise TypeError('Dictionary contents must be str: int')
+
+                if nodes[node] <= 0:
+                    raise ValueError("Node size must be higher than 0")
+
                 self.graph.add_node(node, size=5*nodes[node], labelHighlightBold = True)
             else:
+                if not isinstance(node, str):
+                    self.resetGraph()
+                    raise TypeError("Node usernames must be of type string!")
+
                 self.graph.add_node(node, labelHighlightBold = True)
 
     def addCommentersToGraph(self) -> None:
@@ -109,8 +122,9 @@ class BubbleGraph:
 
     def __getCommenters(self) -> (set[str], set[tuple[str, str]]):
         """
-        Gets the commenter connections from the class dataFile and returns a set of tuples
-        :return: Set of commenters usernames and a set of tuples representing graph edges
+        Gets the commenter connections from the class dataFile and returns a set of usernames
+        and a set of tuples representing connections
+        :return: Set of commenters usernames and a set of tuples representing non-oriented graph edges
         """
 
         with open(self.dataFile, "r") as file:
@@ -126,22 +140,38 @@ class BubbleGraph:
 
         return retCommenters, retConnections
 
-    def __getConnections(self) -> set[tuple[str, str]]:
+    def addConnectionsToGraph(self) -> None:
+        """
+        Adds the user connection nodes and edges to the graph
+        :return: None
+        """
+
+        users, connections = self.__getConnections()
+
+        self.__addNodes(users)
+
+        self.__addEdges(connections)
+
+    def __getConnections(self) -> (set[str], set[tuple[str, str]]):
         """
         Gets the connections from the class dataFile and returns a set of tuples
-        :return: Set of tuples representing oriented graph edges
+        :return: Set of usernames and a set of tuples representing non-oriented graph edges
         """
 
         with open(self.dataFile, "r") as file:
             data = json.load(file)
 
-        retConnections = set()
+        retConnections: set[tuple[str, str]] = set()
 
         for user in data:
             for connection in data[user]["connections"]:
-                retConnections.add((user, connection))
+                if user == connection:
+                    continue
 
-        return retConnections
+                if (user, connection) not in retConnections and (connection, user) not in retConnections:
+                    retConnections.add((user, connection))
+
+        return set(data.keys()), retConnections
 
     def addHashtagsToGraph(self) -> None:
         """
@@ -232,8 +262,8 @@ class BubbleGraph:
 
 if __name__ == "__main__":
     b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
-    b.addHashtagsToGraph()
-    b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
-    b.resetGraph()
-    b.addCommentersToGraph()
-    b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
+    # b.addHashtagsToGraph()
+    # b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
+    # b.resetGraph()
+    # b.addCommentersToGraph()
+    # b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
