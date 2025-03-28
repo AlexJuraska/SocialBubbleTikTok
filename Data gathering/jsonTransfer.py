@@ -48,12 +48,11 @@ class DataParser:
 
         # Creator
         if postCreator in data.keys():
-            data[postCreator]["connections"] = list( set(data[postCreator]["connections"]).union(usernames) )
             data[postCreator]["commenters"] = list( set(data[postCreator]["commenters"]).union(usernames) )
             data[postCreator]["hashtags"] = list( set(data[postCreator]["hashtags"]).union(hashtags) )
         else:
             data[postCreator] = {
-                "connections": list(usernames),
+                "commentedOn" : [],
                 "commenters": list(usernames),
                 "hashtags": list(hashtags),
                 "commentsPosted": []
@@ -67,7 +66,7 @@ class DataParser:
             adjustedUsers.remove(user)
             adjustedUsers.add(postCreator)
             if user in data.keys():
-                data[user]["connections"] = list( set(data[user]["connections"]).union(adjustedUsers) )
+                data[user]["commentedOn"].append(postCreator)
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
 
                 newComment = {
@@ -88,7 +87,7 @@ class DataParser:
 
             else:
                 data[user] = {
-                    "connections": list(adjustedUsers),
+                    "commentedOn": [postCreator,],
                     "commenters": [],
                     "hashtags": list(hashtags),
                     "commentsPosted": [
