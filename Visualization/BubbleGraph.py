@@ -1,6 +1,7 @@
 import json
 from pyvis.network import Network
 import networkx as nx
+import random
 
 class BubbleGraph:
     def __init__(self, dataFile: str, hashtagFile:str):
@@ -25,6 +26,7 @@ class BubbleGraph:
         :param webFileName: Name of the resulting html file (Must end with .html!)
         :param coloringStyle: Type of coloring in - "select" = Selected node cluster,
                                                     "cluster" = All clusters in a separate color
+                                                    "none" = No coloring will take place
         :return: None
         """
         if self.graph.number_of_edges() == 0 and self.graph.number_of_nodes() == 0:
@@ -41,27 +43,22 @@ class BubbleGraph:
         pyvisNet.show_buttons(filter_=["physics"])
         pyvisNet.force_atlas_2based()
 
+        if coloringStyle.lower() == "cluster":
+            self.__colorNodeClusters(pyvisNet)
+
         pyvisNet.write_html(webFileName)
 
-        with open(webFileName, "r") as file:
-            oldHtml = file.read()
-
-        addedJavascript:str = ""
-
         if coloringStyle.lower() == "select":
+            with open(webFileName, "r") as file:
+                oldHtml = file.read()
+
             with open("graphScripts/selectedClusterHighlighting.js", "r") as file:
                 selectedClusterHighlightCode = file.read()
-            addedJavascript += "\n" + selectedClusterHighlightCode
 
-        elif coloringStyle.lower() == "cluster":
-            with open("graphScripts/separateClusterColors.js", "r") as file:
-                separateClusterColorCode = file.read()
-            addedJavascript += "\n" + separateClusterColorCode
+            newHtml = oldHtml.replace("</body>", f"<script>{selectedClusterHighlightCode}</script></body>")
 
-        newHtml = oldHtml.replace("</body>", f"<script>{addedJavascript}</script></body>")
-
-        with open(webFileName, "w") as file:
-            file.write(newHtml)
+            with open(webFileName, "w") as file:
+                file.write(newHtml)
 
     def __addEdges(self, newEdges: set[tuple[str, str]]) -> None:
         """
@@ -176,10 +173,67 @@ class BubbleGraph:
 
         return sizes, edges
 
+    def __colorNodeClusters(self, pyvisNet: Network) -> None:
+        """
+        Function colors each node cluster in the graph in a separate color
+        :return: None
+        """
+
+        clusters = self.__getClusters()
+        clusterColors =  [self.__getColorCombo() for i in range(len(clusters))]
+
+        for cluster in clusters:
+            colorCombo: tuple[str,str] = clusterColors.pop()
+            for node in cluster:
+                pyvisNet.get_node(node)["color"] = {"background": colorCombo[0], "border": colorCombo[1]}
+
+    def __getClusters(self) -> list[list]:
+        """
+        Gets the separate clusters of nodes from the Graph
+        :return: A list of lists of nodes representing the clusters
+        """
+
+        visitedNodes = set()
+        clusters = []
+
+        def dfs(node, cluster):
+            stack = [node]
+            while stack:
+                currentNode = stack.pop()
+                if currentNode not in visitedNodes:
+                    visitedNodes.add(currentNode)
+                    cluster.append(currentNode)
+                    stack.extend(set(self.graph.neighbors(currentNode)) - visitedNodes)
+
+        for node in self.graph.nodes():
+            if node not in visitedNodes:
+                newCluster = []
+                dfs(node, newCluster)
+                clusters.append(newCluster)
+
+        return clusters
+
+    def __getColorCombo(self) -> (str, str):
+        """
+        Function provides 2 node colors - first for the background and a second darker matching color for the border
+        :return: Fill and Border colors in HEX format
+        """
+
+        R = random.randint(50, 200)
+        G = random.randint(50, 200)
+        B = random.randint(50, 200)
+        backgroundColor = f"#{R:02x}{G:02x}{B:02x}"
+
+        darkeningConstant = 0.7
+        borderColor = f"#{int(R*darkeningConstant):02x}{int(G*darkeningConstant):02x}{int(B*darkeningConstant):02x}"
+
+        return backgroundColor, borderColor
+
 
 if __name__ == "__main__":
     b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
-    # b.addHashtagsToGraph()
-    # b.visualizeGraph("hashtagGraph.html")
+    b.addHashtagsToGraph()
+    b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
+    b.resetGraph()
     b.addCommentersToGraph()
-    b.visualizeGraph("commentersGraph.html")
+    b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
