@@ -24,11 +24,18 @@ class BubbleGraph:
         """
         Function visualizes the graph of all the selected nodes and edges.
         If no nodes or edges detected, raises an error.
+
+        coloringStyle
+        -------------
+        "select": Selected node cluster,
+        "cluster": All clusters in a separate color,
+        "none": No coloring will take place
+
         :param webFileName: Name of the resulting html file (Must end with .html!)
-        :param coloringStyle: Type of coloring in - "select" = Selected node cluster,
-                                                    "cluster" = All clusters in a separate color
-                                                    "none" = No coloring will take place
+        :param coloringStyle: Type of coloring in
         :return: None
+        :raises Exception: If no nodes or edges detected
+        :raises ValueError: If coloringStyle is not one of the supported ones or filename does not end with .html
         """
         if self.graph.number_of_edges() == 0 and self.graph.number_of_nodes() == 0:
             raise Exception('Graph has no edges nor nodes')
@@ -107,33 +114,70 @@ class BubbleGraph:
 
                 self.graph.add_node(node, labelHighlightBold = True)
 
-    def addCommentersToGraph(self) -> None:
+    def addCommentersToGraph(self, filterDict: dict[str: list] = {}) -> None:
         """
         Adds the commenter nodes and edges to the graph
+
+        Filter
+        ------
+        "users": List of usernames whose connections we want to show,
+        "showAllUsers": True/False whether to show all users,
+        "hashtags": List of hashtags whose users we want to show
+
+        :param filterDict: Dict containing things we want to leave
         :return: None
         """
 
-        commenters, connections = self.__getCommenters()
+        if not isinstance(filterDict, dict):
+            sendFilter = {}
+        else:
+            sendFilter = filterDict
+
+        commenters, connections = self.__getCommenters(sendFilter)
 
         self.__addNodes(commenters)
 
         self.__addEdges(connections)
 
 
-    def __getCommenters(self) -> (set[str], set[tuple[str, str]]):
+    def __getCommenters(self, filterDict: dict) -> (set[str], set[tuple[str, str]]):
         """
         Gets the commenter connections from the class dataFile and returns a set of usernames
         and a set of tuples representing connections
+
+        Filter
+        ------
+        "users": List of usernames whose connections we want to show,
+        "showAllUsers": True/False whether to show all users,
+        "hashtags": List of hashtags whose users we want to show
+
+        :param filterDict: Dict containing things we want to leave
         :return: Set of commenters usernames and a set of tuples representing non-oriented graph edges
         """
+
+        if "showAllUsers" in filterDict:
+            showAllUsers = filterDict["showAllUsers"]
+        else:
+            showAllUsers = False
 
         with open(self.dataFile, "r") as file:
             data = json.load(file)
 
         retConnections = set()
-        retCommenters = set(data.keys())
+        retCommenters = set()
 
-        for user in data:
+        for user, info in data.items():
+
+            if showAllUsers:
+                retCommenters.add(user)
+
+            if ("users" in filterDict.keys() and
+                user not in filterDict["users"] and
+                "hashtags" in filterDict.keys() and
+                not any(filterHash in info["hashtags"] for filterHash in filterDict["hashtags"])):
+                continue
+
+            retCommenters.add(user)
             for connection in data[user]["commenters"]:
                 if (connection, user) not in retConnections and (user, connection) not in retConnections:
                     retConnections.add((connection, user))
@@ -232,5 +276,11 @@ if __name__ == "__main__":
     # b.addHashtagsToGraph()
     # b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
     # b.resetGraph()
-    # b.addCommentersToGraph()
-    # b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
+
+    filterInput = {
+        "hashtags" : ["#racing"],
+        "showAllUsers" : False,
+        "users" : ["@adorecord14_"]
+    }
+    b.addCommentersToGraph(filterDict=filterInput)
+    b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
