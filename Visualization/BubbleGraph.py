@@ -182,6 +182,10 @@ class BubbleGraph:
                 if (connection, user) not in retConnections and (user, connection) not in retConnections:
                     retConnections.add((connection, user))
 
+            for creator in data[user]["commentedOn"]:
+                if (creator, user) not in retConnections and (user, creator) not in retConnections:
+                    retConnections.add((creator, user))
+
         return retCommenters, retConnections
 
     def addHashtagsToGraph(self) -> None:
@@ -280,7 +284,7 @@ if __name__ == "__main__":
     filterInput = {
         "hashtags" : ["#racing"],
         "showAllUsers" : False,
-        "users" : ["@adorecord14_"]
+        "users" : ["@hotehai"]
     }
     b.addCommentersToGraph(filterDict=filterInput)
     b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
