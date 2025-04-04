@@ -6,8 +6,10 @@ class DataParser:
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
-        self.parsedPostsFile: str = "parsedPosts.txt"
-        self.parsedPosts = []
+        self.parsedSourceFile: str = "parsedSources.txt"
+        self.parsedSources = []
+
+        #TODO? check file eligibility
 
     def parseFileCommentsData(self, source: str) -> None:
         """
@@ -24,7 +26,7 @@ class DataParser:
 
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
-        hashtags, comments = self.__getDataFromFile(usedSource)
+        hashtags, comments = self.__getCommentsDataFromFile(usedSource)
 
         postCreator = usedSource.split("/")[-1].split("-")[0]
 
@@ -131,7 +133,7 @@ class DataParser:
 
             self.parseFileCommentsData(f"{directory}/{file}")
 
-    def __getDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
+    def __getCommentsDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
         """
         Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
 
@@ -154,7 +156,7 @@ class DataParser:
                 hashtags = set(data[0].split("\n"))
                 commentsLines = data[1].split("\n")
 
-            commentsLines = self.__cleanUpData(commentsLines)
+            commentsLines = self.__cleanUpCommentsData(commentsLines)
 
             comments = set()
 
@@ -173,7 +175,7 @@ class DataParser:
 
             return hashtags, comments
 
-    def __cleanUpData(self, lines: list[str]) -> list[str]:
+    def __cleanUpCommentsData(self, lines: list[str]) -> list[str]:
         """
         Gets the comments data in form "@user$Comment$likes". It clears empty lines and
         connects up seperated comment lines
@@ -227,14 +229,14 @@ class DataParser:
         :return: True/False if the file has been parsed or not
         """
 
-        if len(self.parsedPosts) == 0:
+        if len(self.parsedSources) == 0:
             try:
-                with open(self.parsedPostsFile, "r") as file:
-                    self.parsedPosts = file.read().split("\n")
+                with open(self.parsedSourceFile, "r") as file:
+                    self.parsedSources = file.read().split("\n")
             except FileNotFoundError:
                 return False
 
-        return source in self.parsedPosts
+        return source in self.parsedSources
 
     def __noteParsedFile(self, source: str) -> None:
         """
@@ -244,13 +246,13 @@ class DataParser:
         :param source: Path to the source file
         :return: None
         """
-        if source in self.parsedPosts:
+        if source in self.parsedSources:
             return
 
-        with open(self.parsedPostsFile, "a") as file:
+        with open(self.parsedSourceFile, "a") as file:
             file.write(source + "\n")
 
-        self.parsedPosts.append(source)
+        self.parsedSources.append(source)
 
     def __removeSearchFromFilename(self, source: str) -> str:
         """
@@ -269,5 +271,7 @@ class DataParser:
 
 
 if __name__ == "__main__":
-    p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
-    p.parseDirectoryCommentsData("../Data/Comments/")
+    # p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    # p.parseDirectoryCommentsData("../Data/Comments/")
+
+    pTest = DataParser("../Data/Information/testData.json","doesnt/matter")
