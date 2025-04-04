@@ -54,6 +54,12 @@ class DataParser:
             data[postCreator]["hashtags"] = list( set(data[postCreator]["hashtags"]).union(hashtags) )
         else:
             data[postCreator] = {
+                "totalFollowingCount" : 0,
+                "actualFollowingCount" : 0,
+                "following" : [],
+                "totalFollowersCount": 0,
+                "actualFollowersCount" : 0,
+                "followers" : [],
                 "commentedOn" : [],
                 "commenters": list(usernames),
                 "hashtags": list(hashtags),
@@ -89,6 +95,12 @@ class DataParser:
 
             else:
                 data[user] = {
+                    "totalFollowingCount": 0,
+                    "actualFollowingCount": 0,
+                    "following": [],
+                    "totalFollowersCount": 0,
+                    "actualFollowersCount": 0,
+                    "followers": [],
                     "commentedOn": [postCreator,],
                     "commenters": [],
                     "hashtags": list(hashtags),
@@ -163,13 +175,10 @@ class DataParser:
             for line in commentsLines:
                 sep = line.split("$")
 
-                likesMultiplier = 1
-                if sep[2].count("K"):   # "55.8K" == 55800
-                    likesMultiplier = 1000
-                    sep[2] = sep[2].replace("K", "")
+                sep[2] = self.__convertSimpleIntToInt(sep[2])
 
                 try:
-                    comments.add((sep[0], sep[1], int(float(sep[2]) * likesMultiplier)))
+                    comments.add((sep[0], sep[1], sep[2]))
                 except:
                     comments.add((sep[0], sep[1], 0))
 
@@ -195,6 +204,90 @@ class DataParser:
                 retData.append(line)
 
         return retData
+
+    def parseFileFollowsData(self, source: str) -> None:
+        """
+        Function parses through the file containing either Followers or Following with the site provided total amount
+        :param source: File with name format "@name (type)" where type is Followers or Following
+        :return: None
+        """
+
+        noPath: str = source.split("/")[-1]
+        accountUser: str = noPath.split(" ")[0]
+        fileType: str = noPath.split(" ")[1].replace(").txt", "").replace("(","")
+
+        if fileType not in ["Followers","Following"]:
+            raise NameError("File must be either (Followers) or (Following)")
+
+        if self.__fileParsed(source):
+            return
+
+        count: int
+        usernames: set[str]
+        count, usernames = self.__getFollowsDataFromFile(source)
+
+        try:
+            with open(self.dataFile, "r") as file:
+                data = json.load(file)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            data = {}
+
+        if fileType == "Followers":
+            if accountUser in data.keys():
+                data[accountUser]["followers"] = list( set(data[accountUser]["followers"]).union(usernames) )
+                data[accountUser]["actualFollowersCount"] += len(usernames)
+                data[accountUser]["totalFollowersCount"] += count
+            else:
+                data[accountUser] = {
+                    "totalFollowingCount": 0,
+                    "actualFollowingCount": 0,
+                    "following": [],
+                    "totalFollowersCount": count,
+                    "actualFollowersCount": len(usernames),
+                    "followers": list(usernames),
+                    "commentedOn": [],
+                    "commenters": [],
+                    "hashtags": [],
+                    "commentsPosted": []
+                }
+
+        elif fileType == "Following":
+            if accountUser in data.keys():
+                data[accountUser]["following"] = list(set(data[accountUser]["following"]).union(usernames))
+                data[accountUser]["actualFollowingCount"] += len(usernames)
+                data[accountUser]["totalFollowingCount"] += count
+            else:
+                data[accountUser] = {
+                    "totalFollowingCount": count,
+                    "actualFollowingCount": len(usernames),
+                    "following": list(usernames),
+                    "totalFollowersCount": 0,
+                    "actualFollowersCount": 0,
+                    "followers": [],
+                    "commentedOn": [],
+                    "commenters": [],
+                    "hashtags": [],
+                    "commentsPosted": []
+                }
+
+        with open(self.dataFile, "w") as file:
+            json.dump(data, file, indent=3)
+
+        self.__noteParsedFile(source)
+
+    def __getFollowsDataFromFile(self, filename: str) -> (int, set[str]):
+        """
+        Function reads the provided file and discerns the number on the first line and creates a set from the rest from it
+        :param filename: File with either Following or Followers
+        :return: Total count from TikTok and a set of shown Users in the current category
+        """
+        with open(filename, "r", encoding="UTF-8") as file:
+
+            count: int = self.__convertSimpleIntToInt(file.readline().strip())
+
+            names = file.read().split("\n")
+
+            return count, set(names)
 
     def __storeHashtagStatistics(self, hashtags: set[str]) -> None:
         """
@@ -269,9 +362,27 @@ class DataParser:
 
         return newSource
 
+    def __convertSimpleIntToInt(self, number: str) -> int:
+        """
+        Converts number in string form into an integer. Takes in mind the number might be in format "1.1M" or "6.8K"
+        :param number: String
+        :return: Converted integer
+        """
+        dic = {
+            "K": 1000.0,
+            "M": 1_000_000.0
+        }
+        multiplier: str = number[-1]
+
+        if multiplier in dic.keys():
+            return int( float(number[:-1]) * dic[multiplier])
+        else:
+            return int(number)
 
 if __name__ == "__main__":
     # p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # p.parseDirectoryCommentsData("../Data/Comments/")
 
     pTest = DataParser("../Data/Information/testData.json","doesnt/matter")
+    pTest.parseFileFollowsData("../Data/Followers/@apnews (Followers).txt")
+    pTest.parseFileFollowsData("../Data/Following/@apnews (Following).txt")
