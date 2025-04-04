@@ -122,7 +122,7 @@ class DataParser:
 
     def parseDirectoryCommentsData(self, directory: str) -> None:
         """
-        Function gets all the filenames from a directory and calls the parseCommentsData function.
+        Function gets all the filenames from a directory and calls the parseFileCommentsData function.
 
         Important: the func ignores filenames starting with "--"
 
@@ -275,6 +275,31 @@ class DataParser:
 
         self.__noteParsedFile(source)
 
+    def parseDirectoryFollowsData(self, directory: str) -> None:
+        """
+        Function gets all the filenames from a directory and calls the parseFileFollowsData function.
+
+        Important: the func ignores filenames starting with "--"
+
+        :param directory: path to the directory from which the source files will be taken
+        :return: None
+        """
+
+        try:
+            files: list[str] = os.listdir(directory)
+        except FileNotFoundError:
+            print("Error: Directory not found.")
+            return
+        except PermissionError:
+            print("Error: Permission denied.")
+            return
+
+        for file in files:
+            if file.startswith("--") or not file.startswith("@") or not file.endswith(".txt"):
+                continue
+
+            self.parseFileFollowsData(f"{directory}/{file}")
+
     def __getFollowsDataFromFile(self, filename: str) -> (int, set[str]):
         """
         Function reads the provided file and discerns the number on the first line and creates a set from the rest from it
@@ -380,9 +405,7 @@ class DataParser:
             return int(number)
 
 if __name__ == "__main__":
-    # p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # p.parseDirectoryCommentsData("../Data/Comments/")
-
-    pTest = DataParser("../Data/Information/testData.json","doesnt/matter")
-    pTest.parseFileFollowsData("../Data/Followers/@apnews (Followers).txt")
-    pTest.parseFileFollowsData("../Data/Following/@apnews (Following).txt")
+    p.parseDirectoryFollowsData("../Data/Followers/")
+    p.parseDirectoryFollowsData("../Data/Following/")
