@@ -6,8 +6,10 @@ class DataParser:
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
 
-        self.parsedPostsFile: str = "parsedPosts.txt"
-        self.parsedPosts = []
+        self.parsedSourceFile: str = "parsedSources.txt"
+        self.parsedSources = []
+
+        #TODO? check file eligibility
 
     def parseFileCommentsData(self, source: str) -> None:
         """
@@ -24,7 +26,7 @@ class DataParser:
 
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
-        hashtags, comments = self.__getDataFromFile(usedSource)
+        hashtags, comments = self.__getCommentsDataFromFile(usedSource)
 
         postCreator = usedSource.split("/")[-1].split("-")[0]
 
@@ -52,6 +54,12 @@ class DataParser:
             data[postCreator]["hashtags"] = list( set(data[postCreator]["hashtags"]).union(hashtags) )
         else:
             data[postCreator] = {
+                "totalFollowingCount" : 0,
+                "actualFollowingCount" : 0,
+                "following" : [],
+                "totalFollowersCount": 0,
+                "actualFollowersCount" : 0,
+                "followers" : [],
                 "commentedOn" : [],
                 "commenters": list(usernames),
                 "hashtags": list(hashtags),
@@ -87,6 +95,12 @@ class DataParser:
 
             else:
                 data[user] = {
+                    "totalFollowingCount": 0,
+                    "actualFollowingCount": 0,
+                    "following": [],
+                    "totalFollowersCount": 0,
+                    "actualFollowersCount": 0,
+                    "followers": [],
                     "commentedOn": [postCreator,],
                     "commenters": [],
                     "hashtags": list(hashtags),
@@ -108,7 +122,7 @@ class DataParser:
 
     def parseDirectoryCommentsData(self, directory: str) -> None:
         """
-        Function gets all the filenames from a directory and calls the parseCommentsData function.
+        Function gets all the filenames from a directory and calls the parseFileCommentsData function.
 
         Important: the func ignores filenames starting with "--"
 
@@ -131,7 +145,7 @@ class DataParser:
 
             self.parseFileCommentsData(f"{directory}/{file}")
 
-    def __getDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
+    def __getCommentsDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
         """
         Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
 
@@ -154,26 +168,23 @@ class DataParser:
                 hashtags = set(data[0].split("\n"))
                 commentsLines = data[1].split("\n")
 
-            commentsLines = self.__cleanUpData(commentsLines)
+            commentsLines = self.__cleanUpCommentsData(commentsLines)
 
             comments = set()
 
             for line in commentsLines:
                 sep = line.split("$")
 
-                likesMultiplier = 1
-                if sep[2].count("K"):   # "55.8K" == 55800
-                    likesMultiplier = 1000
-                    sep[2] = sep[2].replace("K", "")
+                sep[2] = self.__convertSimpleIntToInt(sep[2])
 
                 try:
-                    comments.add((sep[0], sep[1], int(float(sep[2]) * likesMultiplier)))
+                    comments.add((sep[0], sep[1], sep[2]))
                 except:
                     comments.add((sep[0], sep[1], 0))
 
             return hashtags, comments
 
-    def __cleanUpData(self, lines: list[str]) -> list[str]:
+    def __cleanUpCommentsData(self, lines: list[str]) -> list[str]:
         """
         Gets the comments data in form "@user$Comment$likes". It clears empty lines and
         connects up seperated comment lines
@@ -193,6 +204,120 @@ class DataParser:
                 retData.append(line)
 
         return retData
+
+    def parseFileFollowsData(self, source: str) -> None:
+        """
+        Function parses through the file containing either Followers or Following with the site provided total amount
+        :param source: File with name format "@name (type)" where type is Followers or Following
+        :return: None
+        """
+
+        noPath: str = source.split("/")[-1]
+        accountUser: str = noPath.split(" ")[0]
+        fileType: str = noPath.split(" ")[1].replace(").txt", "").replace("(","")
+
+        if fileType not in ["Followers","Following"]:
+            raise NameError("File must be either (Followers) or (Following)")
+
+        if self.__fileParsed(source):
+            return
+
+        count: int
+        usernames: set[str]
+        count, usernames = self.__getFollowsDataFromFile(source)
+
+        if len(usernames) == 1 and count == 1:
+            actualCount = 1
+        else:
+            actualCount = 0
+
+        try:
+            with open(self.dataFile, "r") as file:
+                data = json.load(file)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            data = {}
+
+        if fileType == "Followers":
+            if accountUser in data.keys():
+                data[accountUser]["followers"] = list( set(data[accountUser]["followers"]).union(usernames) )
+                data[accountUser]["actualFollowersCount"] += actualCount
+                data[accountUser]["totalFollowersCount"] += count
+            else:
+                data[accountUser] = {
+                    "totalFollowingCount": 0,
+                    "actualFollowingCount": 0,
+                    "following": [],
+                    "totalFollowersCount": count,
+                    "actualFollowersCount": actualCount,
+                    "followers": list(usernames),
+                    "commentedOn": [],
+                    "commenters": [],
+                    "hashtags": [],
+                    "commentsPosted": []
+                }
+
+        elif fileType == "Following":
+            if accountUser in data.keys():
+                data[accountUser]["following"] = list(set(data[accountUser]["following"]).union(usernames))
+                data[accountUser]["actualFollowingCount"] += actualCount
+                data[accountUser]["totalFollowingCount"] += count
+            else:
+                data[accountUser] = {
+                    "totalFollowingCount": count,
+                    "actualFollowingCount": actualCount,
+                    "following": list(usernames),
+                    "totalFollowersCount": 0,
+                    "actualFollowersCount": 0,
+                    "followers": [],
+                    "commentedOn": [],
+                    "commenters": [],
+                    "hashtags": [],
+                    "commentsPosted": []
+                }
+
+        with open(self.dataFile, "w") as file:
+            json.dump(data, file, indent=3)
+
+        self.__noteParsedFile(source)
+
+    def parseDirectoryFollowsData(self, directory: str) -> None:
+        """
+        Function gets all the filenames from a directory and calls the parseFileFollowsData function.
+
+        Important: the func ignores filenames starting with "--"
+
+        :param directory: path to the directory from which the source files will be taken
+        :return: None
+        """
+
+        try:
+            files: list[str] = os.listdir(directory)
+        except FileNotFoundError:
+            print("Error: Directory not found.")
+            return
+        except PermissionError:
+            print("Error: Permission denied.")
+            return
+
+        for file in files:
+            if file.startswith("--") or not file.startswith("@") or not file.endswith(".txt"):
+                continue
+
+            self.parseFileFollowsData(f"{directory}/{file}")
+
+    def __getFollowsDataFromFile(self, filename: str) -> (int, set[str]):
+        """
+        Function reads the provided file and discerns the number on the first line and creates a set from the rest from it
+        :param filename: File with either Following or Followers
+        :return: Total count from TikTok and a set of shown Users in the current category
+        """
+        with open(filename, "r", encoding="UTF-8") as file:
+
+            count: int = self.__convertSimpleIntToInt(file.readline().strip())
+
+            names = file.read().split("\n")
+
+            return count, set(names)
 
     def __storeHashtagStatistics(self, hashtags: set[str]) -> None:
         """
@@ -227,14 +352,14 @@ class DataParser:
         :return: True/False if the file has been parsed or not
         """
 
-        if len(self.parsedPosts) == 0:
+        if len(self.parsedSources) == 0:
             try:
-                with open(self.parsedPostsFile, "r") as file:
-                    self.parsedPosts = file.read().split("\n")
+                with open(self.parsedSourceFile, "r") as file:
+                    self.parsedSources = file.read().split("\n")
             except FileNotFoundError:
                 return False
 
-        return source in self.parsedPosts
+        return source in self.parsedSources
 
     def __noteParsedFile(self, source: str) -> None:
         """
@@ -244,13 +369,13 @@ class DataParser:
         :param source: Path to the source file
         :return: None
         """
-        if source in self.parsedPosts:
+        if source in self.parsedSources:
             return
 
-        with open(self.parsedPostsFile, "a") as file:
+        with open(self.parsedSourceFile, "a") as file:
             file.write(source + "\n")
 
-        self.parsedPosts.append(source)
+        self.parsedSources.append(source)
 
     def __removeSearchFromFilename(self, source: str) -> str:
         """
@@ -267,7 +392,29 @@ class DataParser:
 
         return newSource
 
+    def __convertSimpleIntToInt(self, number: str) -> int:
+        """
+        Converts number in string form into an integer. Takes in mind the number might be in format "1.1M" or "6.8K"
+        :param number: String
+        :return: Converted integer
+        """
+        if len(number) == 0:
+            return 0
+
+        dic = {
+            "K": 1000.0,
+            "M": 1_000_000.0
+        }
+        multiplier: str = number[-1]
+
+        if multiplier in dic.keys():
+            return int( float(number[:-1]) * dic[multiplier])
+        else:
+            return int(number)
 
 if __name__ == "__main__":
     p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    # p.parseDirectoryCommentsData("../Data/Comments/")
     p.parseDirectoryCommentsData("../Data/Comments/")
+    p.parseDirectoryFollowsData("../Data/Followers/")
+    p.parseDirectoryFollowsData("../Data/Following/")

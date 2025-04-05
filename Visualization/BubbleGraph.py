@@ -155,7 +155,7 @@ class BubbleGraph:
         :return: Set of commenters usernames and a set of tuples representing non-oriented graph edges
         """
 
-        if "showAllUsers" in filterDict:
+        if "showAllUsers" in filterDict and isinstance(filterDict["showAllUsers"], bool):
             showAllUsers = filterDict["showAllUsers"]
         else:
             showAllUsers = False
@@ -264,9 +264,9 @@ class BubbleGraph:
         :return: Fill and Border colors in HEX format
         """
 
-        R = random.randint(50, 200)
-        G = random.randint(50, 200)
-        B = random.randint(50, 200)
+        R = random.randint(0,255)
+        G = random.randint(0,255)
+        B = random.randint(0,255)
         backgroundColor = f"#{R:02x}{G:02x}{B:02x}"
 
         darkeningConstant = 0.7
@@ -284,7 +284,10 @@ if __name__ == "__main__":
     filterInput = {
         "hashtags" : ["#racing"],
         "showAllUsers" : False,
-        "users" : ["@hotehai"]
+        "users" : ["@hotehai", "@alexey_pigeon"]
     }
     b.addCommentersToGraph(filterDict=filterInput)
-    b.visualizeGraph(webFileName="commentersGraph.html",coloringStyle="cluster")
+    b.visualizeGraph(webFileName="commentersGraphFilter.html",coloringStyle="cluster")
+    b.resetGraph()
+    b.addCommentersToGraph()
+    b.visualizeGraph(webFileName="commentersGraph.html", coloringStyle="select")
