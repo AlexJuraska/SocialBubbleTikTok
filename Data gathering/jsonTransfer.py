@@ -226,6 +226,11 @@ class DataParser:
         usernames: set[str]
         count, usernames = self.__getFollowsDataFromFile(source)
 
+        if len(usernames) == 1 and count == 1:
+            actualCount = 1
+        else:
+            actualCount = 0
+
         try:
             with open(self.dataFile, "r") as file:
                 data = json.load(file)
@@ -235,7 +240,7 @@ class DataParser:
         if fileType == "Followers":
             if accountUser in data.keys():
                 data[accountUser]["followers"] = list( set(data[accountUser]["followers"]).union(usernames) )
-                data[accountUser]["actualFollowersCount"] += len(usernames)
+                data[accountUser]["actualFollowersCount"] += actualCount
                 data[accountUser]["totalFollowersCount"] += count
             else:
                 data[accountUser] = {
@@ -243,7 +248,7 @@ class DataParser:
                     "actualFollowingCount": 0,
                     "following": [],
                     "totalFollowersCount": count,
-                    "actualFollowersCount": len(usernames),
+                    "actualFollowersCount": actualCount,
                     "followers": list(usernames),
                     "commentedOn": [],
                     "commenters": [],
@@ -254,12 +259,12 @@ class DataParser:
         elif fileType == "Following":
             if accountUser in data.keys():
                 data[accountUser]["following"] = list(set(data[accountUser]["following"]).union(usernames))
-                data[accountUser]["actualFollowingCount"] += len(usernames)
+                data[accountUser]["actualFollowingCount"] += actualCount
                 data[accountUser]["totalFollowingCount"] += count
             else:
                 data[accountUser] = {
                     "totalFollowingCount": count,
-                    "actualFollowingCount": len(usernames),
+                    "actualFollowingCount": actualCount,
                     "following": list(usernames),
                     "totalFollowersCount": 0,
                     "actualFollowersCount": 0,
@@ -393,6 +398,9 @@ class DataParser:
         :param number: String
         :return: Converted integer
         """
+        if len(number) == 0:
+            return 0
+
         dic = {
             "K": 1000.0,
             "M": 1_000_000.0
@@ -407,5 +415,6 @@ class DataParser:
 if __name__ == "__main__":
     p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # p.parseDirectoryCommentsData("../Data/Comments/")
+    p.parseDirectoryCommentsData("../Data/Comments/")
     p.parseDirectoryFollowsData("../Data/Followers/")
     p.parseDirectoryFollowsData("../Data/Following/")
