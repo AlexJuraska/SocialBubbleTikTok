@@ -240,8 +240,8 @@ class DataParser:
         if fileType == "Followers":
             if accountUser in data.keys():
                 data[accountUser]["followers"] = list( set(data[accountUser]["followers"]).union(usernames) )
-                data[accountUser]["actualFollowersCount"] += actualCount
-                data[accountUser]["totalFollowersCount"] += count
+                data[accountUser]["actualFollowersCount"] = len(data[accountUser]["followers"])
+                data[accountUser]["totalFollowersCount"] = count
             else:
                 data[accountUser] = {
                     "totalFollowingCount": 0,
@@ -256,11 +256,31 @@ class DataParser:
                     "commentsPosted": []
                 }
 
+            for followerUser in usernames:
+                if followerUser in data.keys():
+                    if accountUser not in data[followerUser]["following"]:
+                        data[followerUser]["following"].append(accountUser)
+                        data[followerUser]["actualFollowingCount"] = len(data[followerUser]["following"])
+                        # Not total, accountUser should be counted in that already
+                else:
+                    data[followerUser] = {
+                        "totalFollowingCount": 1,
+                        "actualFollowingCount": 1,
+                        "following": [accountUser],
+                        "totalFollowersCount": 0,
+                        "actualFollowersCount": 0,
+                        "followers": [],
+                        "commentedOn": [],
+                        "commenters": [],
+                        "hashtags": [],
+                        "commentsPosted": []
+                    }
+
         elif fileType == "Following":
             if accountUser in data.keys():
                 data[accountUser]["following"] = list(set(data[accountUser]["following"]).union(usernames))
-                data[accountUser]["actualFollowingCount"] += actualCount
-                data[accountUser]["totalFollowingCount"] += count
+                data[accountUser]["actualFollowingCount"] = len(data[accountUser]["following"])
+                data[accountUser]["totalFollowingCount"] = count
             else:
                 data[accountUser] = {
                     "totalFollowingCount": count,
@@ -274,6 +294,27 @@ class DataParser:
                     "hashtags": [],
                     "commentsPosted": []
                 }
+
+            for followingUser in usernames:
+                if followingUser in data.keys():
+                    if accountUser not in data[followingUser]["followers"]:
+                        data[followingUser]["followers"].append(accountUser)
+                        data[followingUser]["actualFollowersCount"] = len(data[followingUser]["followers"])
+                        # Not total, accountUser should be counted in that already
+                else:
+                    data[followingUser] = {
+                        "totalFollowingCount": 0,
+                        "actualFollowingCount": 0,
+                        "following": [],
+                        "totalFollowersCount": 1,
+                        "actualFollowersCount": 1,
+                        "followers": [accountUser],
+                        "commentedOn": [],
+                        "commenters": [],
+                        "hashtags": [],
+                        "commentsPosted": []
+                    }
+
 
         with open(self.dataFile, "w") as file:
             json.dump(data, file, indent=3)
