@@ -1,15 +1,19 @@
 import json
+import math
 from pyvis.network import Network
 import networkx as nx
 import random
-import time
 
 class BubbleGraph:
-    def __init__(self, dataFile: str, hashtagFile:str):
+    def __init__(self, dataFile: str, hashtagFile: str, directed: bool = False):
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
+        self.directed: bool = directed
 
-        self.graph: nx.Graph = nx.Graph()
+        if self.directed:
+            self.graph: nx.DiGraph = nx.DiGraph()
+        else:
+            self.graph: nx.Graph = nx.Graph()
 
     def resetGraph(self) -> None:
         """
@@ -46,7 +50,10 @@ class BubbleGraph:
         if not isinstance(coloringStyle, str) or coloringStyle.lower() not in ["none", "select", "cluster"]:
             raise ValueError("Incorrect coloring style option - read function description")
 
-        pyvisNet = Network(notebook=True, height="780px", width="100%")
+        if self.directed:
+            pyvisNet = Network(notebook=True, height="780px", width="100%", directed=True)
+        else:
+            pyvisNet = Network(notebook=True, height="780px", width="100%")
         pyvisNet.from_nx(self.graph)
         pyvisNet.show_buttons(filter_=["physics"])
         pyvisNet.force_atlas_2based()
@@ -106,7 +113,8 @@ class BubbleGraph:
                 if nodes[node] <= 0:
                     raise ValueError("Node size must be higher than 0")
 
-                self.graph.add_node(node, size=5*nodes[node], labelHighlightBold = True)
+                scaled_size = 5 * math.log2(nodes[node] + 1)
+                self.graph.add_node(node, size=scaled_size, labelHighlightBold=True)
             else:
                 if not isinstance(node, str):
                     self.resetGraph()
@@ -114,14 +122,13 @@ class BubbleGraph:
 
                 self.graph.add_node(node, labelHighlightBold = True)
 
-    def addCommentersToGraph(self, filterDict: dict[str: list] = {}) -> None:
+    def addCommentersToGraph(self, filterDict: dict[str: list] = None) -> None:
         """
         Adds the commenter nodes and edges to the graph
 
         Filter
         ------
         "users": List of usernames whose connections we want to show,
-        "showAllUsers": True/False whether to show all users,
         "hashtags": List of hashtags whose users we want to show
 
         :param filterDict: Dict containing things we want to leave
@@ -148,17 +155,11 @@ class BubbleGraph:
         Filter
         ------
         "users": List of usernames whose connections we want to show,
-        "showAllUsers": True/False whether to show all users,
         "hashtags": List of hashtags whose users we want to show
 
         :param filterDict: Dict containing things we want to leave
         :return: Set of commenters usernames and a set of tuples representing non-oriented graph edges
         """
-
-        if "showAllUsers" in filterDict and isinstance(filterDict["showAllUsers"], bool):
-            showAllUsers = filterDict["showAllUsers"]
-        else:
-            showAllUsers = False
 
         with open(self.dataFile, "r") as file:
             data = json.load(file)
@@ -168,16 +169,12 @@ class BubbleGraph:
 
         for user, info in data.items():
 
-            if showAllUsers:
-                retCommenters.add(user)
-
-            if ("users" in filterDict.keys() and
-                user not in filterDict["users"] and
-                "hashtags" in filterDict.keys() and
-                not any(filterHash in info["hashtags"] for filterHash in filterDict["hashtags"])):
+            if not self.__checkFilterPassthrough(user, info, filterDict):
                 continue
 
             retCommenters.add(user)
+
+            #TODO Figure out direction
             for connection in data[user]["commenters"]:
                 if (connection, user) not in retConnections and (user, connection) not in retConnections:
                     retConnections.add((connection, user))
@@ -210,11 +207,81 @@ class BubbleGraph:
         sizes: dict[str: int] = {}
         edges: set[tuple[str, str]] = set()
 
+        #TODO Figure out direction
         for hashtag in data:
             sizes[hashtag] = data[hashtag]["count"]
             for connection in data[hashtag]["connections"]:
                 if not (hashtag, connection) in edges and not (connection, hashtag) in edges:
                     edges.add((hashtag, connection))
+
+        return sizes, edges
+
+    def addFollowsToGraph(self, choice: str, filterDict: dict = None) -> None:
+        """
+        Adds the sized Follows nodes and edges to the graph
+        Filter
+        ------
+        "users": List of usernames whose connections we want to show,
+        "hashtags": List of hashtags whose users we want to show
+
+        :param choice: String - "followers" or "following"
+        :param filterDict: Dict containing things we want to leave
+        :return: None
+        """
+
+        if choice not in ["followers", "following"]:
+            raise ValueError('Invalid choice - must be "following" or "followers"')
+
+        if not isinstance(filterDict, dict):
+            sendFilter = {}
+        else:
+            sendFilter = filterDict
+
+        sizes, edges = self.__getFollows(choice, sendFilter)
+
+        self.__addNodes(sizes)
+        self.__addEdges(edges)
+
+    def __getFollows(self, choice: str, filterDict: dict) -> (dict[str: int], set[tuple[str, str]]):
+        """
+        Gets the connections from the class dataFile and returns the node sizes as well as a set of tuples
+
+        Filter
+        ------
+        "users": List of usernames whose connections we want to show,
+        "hashtags": List of hashtags whose users we want to show
+
+        :param choice: String - "Followers" or "Following"
+        :param filterDict: Dict containing things we want to leave
+        :return: Dict containing node sizes and a set of tuples representing oriented graph edges
+        """
+
+        with open(self.dataFile, "r") as file:
+            data = json.load(file)
+
+        sizes: dict[str: int] = {}
+        edges: set[tuple[str, str]] = set()
+
+        if choice == "followers":
+            totalCount = "totalFollowersCount"
+        elif choice == "following":
+            totalCount = "totalFollowingCount"
+        else:
+            raise ValueError('Invalid choice - must be "following" or "followers"')
+
+        for user, info in data.items():
+            if info[totalCount] == 0:
+                continue
+
+            if not self.__checkFilterPassthrough(user, info, filterDict):
+                continue
+
+            sizes[user] = info[totalCount]
+            for connection in info[choice]:
+                if self.directed:
+                    edges.add((user, connection))
+                # elif not (user, connection) in edges and not (connection, user) in edges:
+                #     edges.add((user, connection))
 
         return sizes, edges
 
@@ -249,6 +316,7 @@ class BubbleGraph:
                     visitedNodes.add(currentNode)
                     cluster.append(currentNode)
                     stack.extend(set(self.graph.neighbors(currentNode)) - visitedNodes)
+                    #TODO problem - neighbors in directed graph are not the ones pointed to
 
         for node in self.graph.nodes():
             if node not in visitedNodes:
@@ -274,20 +342,45 @@ class BubbleGraph:
 
         return backgroundColor, borderColor
 
+    def __checkFilterPassthrough(self, user:str, info:dict, filterDict:dict) -> bool:
+        """
+        :returns True if the user qualifies for any filter parameter, False otherwise
+        """
+        if "users" in filterDict and user in filterDict["users"]:
+            return True
+
+        if "hashtags" in filterDict:
+            user_hashtags = info.get("hashtags", [])
+            if any(tag in user_hashtags for tag in filterDict["hashtags"]):
+                return True
+
+        return False
+
 
 if __name__ == "__main__":
-    b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    datafile = "../Data/Information/data.json"
+    hashfile = "../Data/Information/hashtags.json"
+    # b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # b.addHashtagsToGraph()
     # b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
     # b.resetGraph()
 
+
     filterInput = {
-        "hashtags" : ["#racing"],
-        "showAllUsers" : False,
-        "users" : ["@hotehai", "@alexey_pigeon"]
+        # "hashtags" : ["#racing"],
+        # "users" : ["@ashley__mercer", "@classicaltrombone"]
+        "users": ["@classicaltrombone","@itsjustalfed","@letskwoowk","@maxfosh"]
     }
-    b.addCommentersToGraph(filterDict=filterInput)
-    b.visualizeGraph(webFileName="commentersGraphFilter.html",coloringStyle="cluster")
+    # b.addCommentersToGraph(filterDict=filterInput)
+    # b.visualizeGraph(webFileName="commentersGraphFilter.html",coloringStyle="cluster")
+    # b.resetGraph()
+    # b.addCommentersToGraph()
+    # b.visualizeGraph(webFileName="commentersGraph.html", coloringStyle="select")
+
+    b = BubbleGraph(datafile, hashfile, directed=True)
+    # b.resetGraph()
+    # b.addFollowsToGraph(choice="followers", filterDict=filterInput)
+    # b.visualizeGraph(webFileName="followersGraph.html", coloringStyle="cluster")
     b.resetGraph()
-    b.addCommentersToGraph()
-    b.visualizeGraph(webFileName="commentersGraph.html", coloringStyle="select")
+    b.addFollowsToGraph(choice="following", filterDict=filterInput)
+    b.visualizeGraph(webFileName="followingGraph.html", coloringStyle="cluster")
