@@ -6,12 +6,19 @@ import networkx as nx
 import random
 import time
 
+from unicodedata import bidirectional
+
+
 class BubbleGraph:
-    def __init__(self, dataFile: str, hashtagFile:str):
+    def __init__(self, dataFile: str, hashtagFile: str, directed: bool = False):
         self.dataFile: str = dataFile
         self.hashtagFile: str = hashtagFile
+        self.directed: bool = directed
 
-        self.graph: nx.Graph = nx.Graph()
+        if self.directed:
+            self.graph: nx.DiGraph = nx.DiGraph()
+        else:
+            self.graph: nx.Graph = nx.Graph()
 
     def resetGraph(self) -> None:
         """
@@ -48,7 +55,10 @@ class BubbleGraph:
         if not isinstance(coloringStyle, str) or coloringStyle.lower() not in ["none", "select", "cluster"]:
             raise ValueError("Incorrect coloring style option - read function description")
 
-        pyvisNet = Network(notebook=True, height="780px", width="100%")
+        if self.directed:
+            pyvisNet = Network(notebook=True, height="780px", width="100%", directed=True)
+        else:
+            pyvisNet = Network(notebook=True, height="780px", width="100%")
         pyvisNet.from_nx(self.graph)
         pyvisNet.show_buttons(filter_=["physics"])
         pyvisNet.force_atlas_2based()
@@ -168,6 +178,8 @@ class BubbleGraph:
                 continue
 
             retCommenters.add(user)
+
+            #TODO Figure out direction
             for connection in data[user]["commenters"]:
                 if (connection, user) not in retConnections and (user, connection) not in retConnections:
                     retConnections.add((connection, user))
@@ -200,6 +212,7 @@ class BubbleGraph:
         sizes: dict[str: int] = {}
         edges: set[tuple[str, str]] = set()
 
+        #TODO Figure out direction
         for hashtag in data:
             sizes[hashtag] = data[hashtag]["count"]
             for connection in data[hashtag]["connections"]:
@@ -270,8 +283,10 @@ class BubbleGraph:
 
             sizes[user] = info[totalCount]
             for connection in info[choice]:
-                if not (user, connection) in edges and not (connection, user) in edges:
+                if self.directed:
                     edges.add((user, connection))
+                # elif not (user, connection) in edges and not (connection, user) in edges:
+                #     edges.add((user, connection))
 
         return sizes, edges
 
@@ -306,6 +321,7 @@ class BubbleGraph:
                     visitedNodes.add(currentNode)
                     cluster.append(currentNode)
                     stack.extend(set(self.graph.neighbors(currentNode)) - visitedNodes)
+                    #TODO problem - neighbors in directed graph are not the ones pointed to
 
         for node in self.graph.nodes():
             if node not in visitedNodes:
@@ -347,7 +363,9 @@ class BubbleGraph:
 
 
 if __name__ == "__main__":
-    b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
+    datafile = "../Data/Information/data.json"
+    hashfile = "../Data/Information/hashtags.json"
+    # b = BubbleGraph("../Data/Information/data.json", "../Data/Information/hashtags.json")
     # b.addHashtagsToGraph()
     # b.visualizeGraph(webFileName="hashtagGraph.html",coloringStyle="cluster")
     # b.resetGraph()
@@ -364,6 +382,7 @@ if __name__ == "__main__":
     # b.addCommentersToGraph()
     # b.visualizeGraph(webFileName="commentersGraph.html", coloringStyle="select")
 
+    b = BubbleGraph(datafile, hashfile, directed=True)
     # b.resetGraph()
     # b.addFollowsToGraph(choice="followers", filterDict=filterInput)
     # b.visualizeGraph(webFileName="followersGraph.html", coloringStyle="cluster")
