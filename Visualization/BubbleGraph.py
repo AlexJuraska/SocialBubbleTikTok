@@ -1,13 +1,8 @@
 import json
 import math
-
 from pyvis.network import Network
 import networkx as nx
 import random
-import time
-
-from unicodedata import bidirectional
-
 
 class BubbleGraph:
     def __init__(self, dataFile: str, hashtagFile: str, directed: bool = False):
@@ -374,7 +369,7 @@ if __name__ == "__main__":
     filterInput = {
         # "hashtags" : ["#racing"],
         # "users" : ["@ashley__mercer", "@classicaltrombone"]
-        "users": ["@sanoman2003", "@filipkonzelmann", "@f1"]
+        "users": ["@classicaltrombone","@itsjustalfed","@letskwoowk","@maxfosh"]
     }
     # b.addCommentersToGraph(filterDict=filterInput)
     # b.visualizeGraph(webFileName="commentersGraphFilter.html",coloringStyle="cluster")
