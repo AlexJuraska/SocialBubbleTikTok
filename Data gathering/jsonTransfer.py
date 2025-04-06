@@ -264,7 +264,7 @@ class DataParser:
                         # Not total, accountUser should be counted in that already
                 else:
                     data[followerUser] = {
-                        "totalFollowingCount": 1,
+                        "totalFollowingCount": 0,
                         "actualFollowingCount": 1,
                         "following": [accountUser],
                         "totalFollowersCount": 0,
@@ -306,7 +306,7 @@ class DataParser:
                         "totalFollowingCount": 0,
                         "actualFollowingCount": 0,
                         "following": [],
-                        "totalFollowersCount": 1,
+                        "totalFollowersCount": 0,
                         "actualFollowersCount": 1,
                         "followers": [accountUser],
                         "commentedOn": [],
