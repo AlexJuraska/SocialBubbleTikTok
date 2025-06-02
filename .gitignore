@@ -1,8 +1,13 @@
 # Ignore all gathered data
 Data/
+CustomData
 Trash/
 Website/
+Thesis/
 
 # Ignore secrets and unnecessary things
 .idea/
 .env/
+/CustomData/
+/DataGeneration/CommentsSources/
+/DataGeneration/HashtagSources/
