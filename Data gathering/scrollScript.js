@@ -9,7 +9,6 @@ function scrollForDuration(duration, speed) {
 
     if (Date.now() - startTime >= duration) {
       clearInterval(interval);
-      console.log("Scrolling stopped after ${duration}ms");
     }
   }, 100);
 }

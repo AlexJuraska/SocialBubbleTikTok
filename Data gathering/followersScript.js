@@ -3,8 +3,10 @@
  */
 function saveFollowsToFile(name) {
 
+    if (!["Followers", "Following"].includes(name)) { return; }
+
     const countElement = document.querySelector('strong[title=' + name + ']');
-    const nameCount = countElement.innerText;
+    const nameCount = parseShortNumber(countElement.innerText);
 
     const followsLiWrapper = document.querySelectorAll("li")
     const uniqueFollowers = new Set();
@@ -17,8 +19,7 @@ function saveFollowsToFile(name) {
     });
 
     const filteredFollows = Array.from(uniqueFollowers);
-
-    var hrefsToSave = nameCount;
+    let hrefsToSave = nameCount;
 
     if (filteredFollows.length > 0) {
         hrefsToSave += "\n" + filteredFollows.join("\n");
@@ -33,17 +34,4 @@ function saveFollowsToFile(name) {
     link.download = window.location.href.replace(/^https:\/\/www\.tiktok\.com\//, "").replace(/\//g, '-') +  " (" + name + ").txt";
 
     link.click();
-
-    console.log(name + " links saved");
 }
-
-(function() {
-    document.addEventListener("keydown", function(event) {
-        if (event.key.toLowerCase() === "z") {
-            saveFollowsToFile("Following");
-        } else if (event.key.toLowerCase() === "x") {
-            saveFollowsToFile("Followers");
-        }
-    });
-})();
-
