@@ -5,9 +5,8 @@ Trash/
 Website/
 Thesis/
 
-# Ignore secrets and unnecessary things
+# Ignore unnecessary things
 .idea/
-.env/
 /CustomData/
 /DataGeneration/CommentsSources/
 /DataGeneration/HashtagSources/
