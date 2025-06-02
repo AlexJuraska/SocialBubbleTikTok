@@ -4,8 +4,6 @@
 function savePostToFile() {
 
   const uniqueTagHrefs = new Set();
-
-  // Getting hashtags
   const hashtagElements = document.querySelectorAll('strong');
   hashtagElements.forEach(hashtag => {
     const text = hashtag.textContent
@@ -15,7 +13,10 @@ function savePostToFile() {
     }
   });
 
-  // Getting comments
+  const countDivWrapper = document.querySelector("div.css-12ulmim-DivCommentCountContainer.ejcng164");
+  const countSpan = countDivWrapper.querySelector("span.TUXText.TUXText--tiktok-sans.TUXText--weight-medium");
+  const count = parseShortNumber(countSpan.textContent.split(" ")[0])
+
   const commentDivWrappers = document.querySelectorAll("div.e1970p9w2")
   const uniqueComments = new Set();
 
@@ -37,7 +38,7 @@ function savePostToFile() {
 
   if (filteredTagHrefs.length > 0 || filteredComments.length > 0) {
 
-    const hrefsToSave = filteredTagHrefs.join('\n') + '\n\n' + filteredComments.join('\n');
+    const hrefsToSave = count + '\n' + filteredTagHrefs.join('\n') + '\n\n' + filteredComments.join('\n');
 
     const blob = new Blob([hrefsToSave], { type: "text/plain" });
 
@@ -48,9 +49,5 @@ function savePostToFile() {
     link.download = window.location.href.replace(/^https:\/\/www\.tiktok\.com\//, "").replace(/\//g, '-') + ".txt";
 
     link.click();
-
-    console.log("Usernames saved");
-  } else {
-    console.log("Something went wrong");
   }
 }

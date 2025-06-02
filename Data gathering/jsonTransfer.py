@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 class DataParser:
     def __init__(self, dataFile: str, hashtagFile: str):
@@ -8,8 +9,6 @@ class DataParser:
 
         self.parsedSourceFile: str = "parsedSources.txt"
         self.parsedSources = []
-
-        #TODO? check file eligibility
 
     def parseFileCommentsData(self, source: str) -> None:
         """
@@ -24,9 +23,10 @@ class DataParser:
         if self.__fileParsed(usedSource):
             return
 
+        count: int
         hashtags: set[str]
         comments: set[tuple[str, str, int]]
-        hashtags, comments = self.__getCommentsDataFromFile(usedSource)
+        count, hashtags, comments = self.__getCommentsDataFromFile(usedSource)
 
         postCreator = usedSource.split("/")[-1].split("-")[0]
 
@@ -34,10 +34,6 @@ class DataParser:
         usernames = set()
         for entry in comments:
             user, text, likes = entry
-
-            #NOTE possibly not needed if the scraping code is good enough
-            if user == postCreator or user.startswith("@MS4"):  #EXPL @MS4 users are mentioned users, those we ignore
-                continue
 
             usernames.add(user)
             filteredComments.add(entry)
@@ -52,14 +48,18 @@ class DataParser:
         if postCreator in data.keys():
             data[postCreator]["commenters"] = list( set(data[postCreator]["commenters"]).union(usernames) )
             data[postCreator]["hashtags"] = list( set(data[postCreator]["hashtags"]).union(hashtags) )
+            data[postCreator]["totalCommentsCount"] += count
+            data[postCreator]["shownCommentsCount"] += len(filteredComments)
         else:
             data[postCreator] = {
                 "totalFollowingCount" : 0,
-                "actualFollowingCount" : 0,
+                "shownFollowingCount" : 0,
                 "following" : [],
                 "totalFollowersCount": 0,
-                "actualFollowersCount" : 0,
+                "shownFollowersCount" : 0,
                 "followers" : [],
+                "totalCommentsCount" : count,
+                "shownCommentsCount" : len(filteredComments),
                 "commentedOn" : [],
                 "commenters": list(usernames),
                 "hashtags": list(hashtags),
@@ -74,7 +74,7 @@ class DataParser:
             adjustedUsers.remove(user)
             adjustedUsers.add(postCreator)
             if user in data.keys():
-                data[user]["commentedOn"].append(postCreator)
+                data[user]["commentedOn"] = list( set(data[user]["commentedOn"]).union(postCreator) )
                 data[user]["hashtags"] = list( set(data[user]["hashtags"]).union(hashtags) )
 
                 newComment = {
@@ -96,11 +96,13 @@ class DataParser:
             else:
                 data[user] = {
                     "totalFollowingCount": 0,
-                    "actualFollowingCount": 0,
+                    "shownFollowingCount": 0,
                     "following": [],
                     "totalFollowersCount": 0,
-                    "actualFollowersCount": 0,
+                    "shownFollowersCount": 0,
                     "followers": [],
+                    "totalCommentsCount": 0,
+                    "shownCommentsCount": 0,
                     "commentedOn": [postCreator,],
                     "commenters": [],
                     "hashtags": list(hashtags),
@@ -145,7 +147,7 @@ class DataParser:
 
             self.parseFileCommentsData(f"{directory}/{file}")
 
-    def __getCommentsDataFromFile(self, filename: str) -> (set[str], set[tuple[str, str, int]]):
+    def __getCommentsDataFromFile(self, filename: str) -> (int ,set[str], set[tuple[str, str, int]]):
         """
         Function reads the provided file and discerns the hashtags and usernames/comments/likes from it
 
@@ -153,36 +155,43 @@ class DataParser:
         an empty line separating the two sections. The other section should be "@user$Comment$likes".
 
         :param filename: name of the source file
-        :return: Sets containing hashtags and tuples containing the rest of the data respectively
+        :return: Int=total comments count, sets containing hashtags and tuples containing the rest of the data respectively
         """
         with open(filename, "r", encoding="UTF-8") as f:
 
+            count = int(f.readline().strip())
+
             text = f.read()
 
-            if text[:2] == "\n\n":
-                hashtags = set()
-                text = text[2:]
-                commentsLines = text.split("\n")
-            else:
-                data = text.strip().split("\n\n")
-                hashtags = set(data[0].split("\n"))
-                commentsLines = data[1].split("\n")
+        if text[:2] == "\n\n":
+            hashtags = set()
+            text = text[2:]
+            commentsLines = text.split("\n")
+        else:
+            data = text.strip().split("\n\n")
+            hashtags = set(data[0].split("\n"))
+            commentsLines = data[1].split("\n")
 
-            commentsLines = self.__cleanUpCommentsData(commentsLines)
+        commentsLines = self.__cleanUpCommentsData(commentsLines)
 
-            comments = set()
+        comments = set()
 
-            for line in commentsLines:
-                sep = line.split("$")
+        for line in commentsLines:
+            sep = line.split("$")
 
-                sep[2] = self.__convertSimpleIntToInt(sep[2])
+            sep[2] = self.__convertSimpleIntToInt(sep[2])
 
-                try:
-                    comments.add((sep[0], sep[1], sep[2]))
-                except:
-                    comments.add((sep[0], sep[1], 0))
+            try:
+                hashtags.update(set(re.findall(r'#\w+', sep[1])))
+            except:
+                pass
 
-            return hashtags, comments
+            try:
+                comments.add((sep[0], sep[1], sep[2]))
+            except:
+                comments.add((sep[0], sep[1], 0))
+
+        return count, hashtags, comments
 
     def __cleanUpCommentsData(self, lines: list[str]) -> list[str]:
         """
@@ -226,10 +235,8 @@ class DataParser:
         usernames: set[str]
         count, usernames = self.__getFollowsDataFromFile(source)
 
-        if len(usernames) == 1 and count == 1:
-            actualCount = 1
-        else:
-            actualCount = 0
+        if "" in usernames:
+            usernames.remove("")
 
         try:
             with open(self.dataFile, "r") as file:
@@ -240,16 +247,18 @@ class DataParser:
         if fileType == "Followers":
             if accountUser in data.keys():
                 data[accountUser]["followers"] = list( set(data[accountUser]["followers"]).union(usernames) )
-                data[accountUser]["actualFollowersCount"] = len(data[accountUser]["followers"])
                 data[accountUser]["totalFollowersCount"] = count
+                data[accountUser]["shownFollowersCount"] = len(usernames)
             else:
                 data[accountUser] = {
                     "totalFollowingCount": 0,
-                    "actualFollowingCount": 0,
+                    "shownFollowingCount": 0,
                     "following": [],
                     "totalFollowersCount": count,
-                    "actualFollowersCount": actualCount,
+                    "shownFollowersCount": len(usernames),
                     "followers": list(usernames),
+                    "totalCommentsCount": 0,
+                    "shownCommentsCount": 0,
                     "commentedOn": [],
                     "commenters": [],
                     "hashtags": [],
@@ -257,19 +266,23 @@ class DataParser:
                 }
 
             for followerUser in usernames:
+                if followerUser == "":
+                    continue
                 if followerUser in data.keys():
                     if accountUser not in data[followerUser]["following"]:
                         data[followerUser]["following"].append(accountUser)
-                        data[followerUser]["actualFollowingCount"] = len(data[followerUser]["following"])
                         # Not total, accountUser should be counted in that already
+                        # Not shown, that tells only what TikTok showed us
                 else:
                     data[followerUser] = {
                         "totalFollowingCount": 0,
-                        "actualFollowingCount": 1,
+                        "shownFollowingCount": 0,
                         "following": [accountUser],
                         "totalFollowersCount": 0,
-                        "actualFollowersCount": 0,
+                        "shownFollowersCount": 0,
                         "followers": [],
+                        "totalCommentsCount": 0,
+                        "shownCommentsCount": 0,
                         "commentedOn": [],
                         "commenters": [],
                         "hashtags": [],
@@ -279,16 +292,18 @@ class DataParser:
         elif fileType == "Following":
             if accountUser in data.keys():
                 data[accountUser]["following"] = list(set(data[accountUser]["following"]).union(usernames))
-                data[accountUser]["actualFollowingCount"] = len(data[accountUser]["following"])
                 data[accountUser]["totalFollowingCount"] = count
+                data[accountUser]["shownFollowingCount"] = len(usernames)
             else:
                 data[accountUser] = {
                     "totalFollowingCount": count,
-                    "actualFollowingCount": actualCount,
+                    "shownFollowingCount": len(usernames),
                     "following": list(usernames),
                     "totalFollowersCount": 0,
-                    "actualFollowersCount": 0,
+                    "shownFollowersCount": 0,
                     "followers": [],
+                    "totalCommentsCount": 0,
+                    "shownCommentsCount": 0,
                     "commentedOn": [],
                     "commenters": [],
                     "hashtags": [],
@@ -296,19 +311,23 @@ class DataParser:
                 }
 
             for followingUser in usernames:
+                if followingUser == "":
+                    continue
                 if followingUser in data.keys():
                     if accountUser not in data[followingUser]["followers"]:
                         data[followingUser]["followers"].append(accountUser)
-                        data[followingUser]["actualFollowersCount"] = len(data[followingUser]["followers"])
                         # Not total, accountUser should be counted in that already
+                        # Not shown, that tells only what TikTok showed us
                 else:
                     data[followingUser] = {
                         "totalFollowingCount": 0,
-                        "actualFollowingCount": 0,
+                        "shownFollowingCount": 0,
                         "following": [],
                         "totalFollowersCount": 0,
-                        "actualFollowersCount": 1,
+                        "shownFollowersCount": 0,
                         "followers": [accountUser],
+                        "totalCommentsCount": 0,
+                        "shownCommentsCount": 0,
                         "commentedOn": [],
                         "commenters": [],
                         "hashtags": [],
@@ -436,6 +455,7 @@ class DataParser:
     def __convertSimpleIntToInt(self, number: str) -> int:
         """
         Converts number in string form into an integer. Takes in mind the number might be in format "1.1M" or "6.8K"
+        (Shouldn't be needed but kept for redundancy)
         :param number: String
         :return: Converted integer
         """
@@ -452,10 +472,3 @@ class DataParser:
             return int( float(number[:-1]) * dic[multiplier])
         else:
             return int(number)
-
-if __name__ == "__main__":
-    p = DataParser("../Data/Information/data.json", "../Data/Information/hashtags.json")
-    # p.parseDirectoryCommentsData("../Data/Comments/")
-    p.parseDirectoryCommentsData("../Data/Comments/")
-    p.parseDirectoryFollowsData("../Data/Followers/")
-    p.parseDirectoryFollowsData("../Data/Following/")
