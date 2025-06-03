@@ -11,6 +11,8 @@ VISTYPE = "Comments"
 # VISTYPE = "Followers"
 # VISTYPE = "Following"
 
+DATA_FILE = ".json"
+
 colors = {
     "Comments" : "green",
     "Followers": "orange",
@@ -35,7 +37,7 @@ text = {
     }
 }
 
-with open("../Data/Information/data.json", "r", encoding="utf-8") as f:
+with open(DATA_FILE, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 counts = []

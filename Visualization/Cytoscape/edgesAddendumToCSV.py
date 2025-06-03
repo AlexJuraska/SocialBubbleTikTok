@@ -5,8 +5,8 @@
 import json
 import csv
 
-DATA_FILE:str = "../../Data/Information/data.json"
-OUTPUT_FILE_FOLLOWING:str = "edgesAddendumData.csv"
+DATA_FILE:str = ".json"
+OUTPUT_FILE_FOLLOWING:str = ".csv"
 
 with open(DATA_FILE, "r", encoding="utf-8") as f:
     data = json.load(f)

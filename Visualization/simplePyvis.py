@@ -6,12 +6,14 @@ import json
 from pyvis.network import Network
 import networkx as nx
 
+DATA_FILE = ".json"
+
 graph = nx.DiGraph()
 
-with open('../Data/Information/data.json', "r", encoding="utf-8") as f:
+with open(DATA_FILE, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-user = "@sanoman2003"
+user = ""
 
 nodes = { user, }
 edges = set()

@@ -6,8 +6,8 @@ import json
 import csv
 import random
 
-DATA_FILE:str = "../../CustomData/customLeidenCommunities.json"
-OUTPUT_FILE_LEIDEN:str = "customLeidenData.csv"
+DATA_FILE:str = ".json"
+OUTPUT_FILE_LEIDEN:str = ".csv"
 
 def getColor() -> str:
     R = random.randint(180, 255)
