@@ -18,3 +18,5 @@ In all of these, .json files need to be added where the info will be gathered fr
 DATA_FILE - .json file with the data from Data Gathering
 COMM_FILE - .json file with the wanted community data
 OUTPUT_FILE - .csv output file 
+
+[simplePyvis.py](simplePyvis.py) creates a simple HTML showcase of a graph with a singular user.
