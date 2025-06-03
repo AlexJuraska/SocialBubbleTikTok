@@ -1,3 +1,7 @@
+##################################################
+# Classes for the community detection extraction #
+##################################################
+
 import igraph as ig
 import leidenalg
 from collections import defaultdict

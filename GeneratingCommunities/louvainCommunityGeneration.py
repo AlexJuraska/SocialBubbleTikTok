@@ -1,6 +1,6 @@
-"""
-This script generates communities using Louvain community detection algorithm.
-"""
+##################################################################################
+# This script generates communities using Louvain community detection algorithm. #
+##################################################################################
 
 from GeneratingCommunities.fileGetter import getData
 from GeneratingCommunities.fileGetter import LOUVAIN_DATA_SOURCE as DATA_OUTPUT
@@ -86,5 +86,4 @@ for com in communities:
 with open(DATA_OUTPUT, "w") as f:
     json.dump(communities, f, indent=3)
 
-# print("---------------------------------------------------------------------")
 print(f"Louvain data saved to '{DATA_OUTPUT}'. It took {time.time() - checkpoint} seconds.")
